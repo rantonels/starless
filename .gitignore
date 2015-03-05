@@ -1,0 +1,5 @@
+*.swp
+tests
+out
+*.pyc
+textures/
