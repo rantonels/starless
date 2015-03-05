@@ -38,7 +38,15 @@ for arg in sys.argv[1:]:
 #importing scene
 import ConfigParser
 
-cfp = ConfigParser.ConfigParser()
+defaults = {
+            "Distort":"1",
+            "Fogdo":"1",
+            "Blurdo":"1",
+            "Fogmult":"0.1"         
+
+            }
+
+cfp = ConfigParser.ConfigParser(defaults)
 print "Reading scene %s..."%SCENE_FNAME
 cfp.read(SCENE_FNAME)
 
@@ -86,6 +94,7 @@ try:
     TANFOV = float(cfp.get('geometry','Fieldofview'))
     LOOKAT = np.array(map(lambda x:float(x),cfp.get('geometry','Lookat').split(',')))
     UPVEC = np.array(map(lambda x:float(x),cfp.get('geometry','Upvector').split(',')))
+    DISTORT = int(cfp.get('geometry','Distort'))
 
 except KeyError:
     print "error reading scene file: insufficient data in geometry section"
@@ -267,9 +276,12 @@ for it in range(NITER):
 
     #leapfrog method here feels good
     point += velocity * STEP
-    #this is the magical - 3/2 r^(-5) potential...
-    accel = - 1.5 * h2 *  point / np.outer(sixth(point),np.array([1.,1.,1.]))
-    velocity += accel * STEP
+    
+    if DISTORT:
+        #this is the magical - 3/2 r^(-5) potential...
+        accel = - 1.5 * h2 *  point / np.outer(sixth(point),np.array([1.,1.,1.]))
+        velocity += accel * STEP
+
 
     #useful precalcs
     pointsqr = sqrnorm(point)
@@ -385,6 +397,8 @@ dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
 
 if SKY_TEXTURE == 'texture':
     col_bg = col_sky
+elif SKY_TEXTURE == 'none':
+    col_bg = np.zeros((numPixels,3))
 else:
     col_bg = dbg_finvec
 

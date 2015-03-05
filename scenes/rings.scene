@@ -12,10 +12,10 @@ Stepsize=0.02
 
 [geometry]
 
-Cameraposition=0.,.1,-3.
-Fieldofview=1.5
+Cameraposition=0.,1.,-3.
+Fieldofview=.03
 
-Lookat=2.5,0.05,0.0
+Lookat=0.,1.79,0.
 
 Upvector=0.,1.,0.
 
@@ -25,3 +25,4 @@ Horizongrid=0
 Disktexture=texture
 Skytexture=texture
 Skydiskratio=0.3
+Fogmult=0.2
