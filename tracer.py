@@ -9,7 +9,7 @@ import datetime
 INV255 = 1./255.
 
 #defining texture lookup
-def lookup(texarr,uvarrin): #uvarr must have indices: uvindex, pixindex (shape (2,numPixels))
+def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
     uvarr = np.clip(uvarrin,0.0,0.999)
 
     uvarr[:,0] *= float(texarr.shape[1])
@@ -17,8 +17,8 @@ def lookup(texarr,uvarrin): #uvarr must have indices: uvindex, pixindex (shape (
     
     uvarr = uvarr.astype(int)
 
-
     return INV255*texarr[  uvarr[:,1], uvarr[:,0] ]
+
 
 #rough option parsing
 LOFI = False
@@ -50,7 +50,10 @@ cfp = ConfigParser.ConfigParser(defaults)
 print "Reading scene %s..."%SCENE_FNAME
 cfp.read(SCENE_FNAME)
 
-#default values
+#some default values
+#these should actually go in the "defaults" dict above
+#but right now I don't feel like copying them.
+
 RESOLUTION = (640,480)
 NITER = 1000
 STEP = 0.02
@@ -70,8 +73,14 @@ BLURDO = True
 
 SKYTEXFNAME = "textures/bgedit.png"
 
+#this is never catched by except. WHY?
 ex = ConfigParser.NoSectionError
 
+
+
+#this section works, but only if the .scene file is good
+#if there's anything wrong, it's a trainwreck
+#must rewrite
 try:
     RESOLUTION = map(lambda x:int(x),cfp.get('lofi','Resolution').split(','))
     NITER = int(cfp.get('lofi','Iterations'))
@@ -114,14 +123,16 @@ except KeyError:
     print "using defaults."
 
 
-
+#just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
+
 
 
 print "Loading textures..."
 if SKY_TEXTURE == 'texture':
     texarr_sky = spm.imread('textures/bgedit.png')
     if not LOFI:
+        #   maybe doing this manually and then loading is better.
         print "(zooming sky texture...)"
         texarr_sky = spm.imresize(texarr_sky,2.0,interp='bicubic')
 
@@ -134,6 +145,7 @@ if DISK_TEXTURE == 'test':
 print "Computing rotation matrix..."
 sys.stdout.flush()
 
+# this is just standard CGI vector algebra
 
 FRONTVEC = (LOOKAT-CAMERA_POS)
 FRONTVEC = FRONTVEC / np.linalg.norm(FRONTVEC)
@@ -170,6 +182,8 @@ def vec3(x,y,z):
     return vec3a(np.array([x,y,z]))
 
 def norm(vec):
+    # you might not believe it, but this is the fastest way of doing this
+    # there's a stackexchange answer about this
     return np.sqrt(np.einsum('...i,...i',vec,vec))
 
 def normalize(vec):
@@ -188,6 +202,7 @@ def sixth(v):
     return tmp*tmp*tmp
 
 
+# this blends colours ca and cb by placing ca in front of cb
 def blendcolors(cb,balpha,ca,aalpha):
             #* np.outer(aalpha, np.array([1.,1.,1.])) + \
     return np.clip(
@@ -195,8 +210,10 @@ def blendcolors(cb,balpha,ca,aalpha):
             cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
                 ,0.,1.)
 
+# this is for the final alpha channel after blending
 def blendalpha(balpha,aalpha):
     return aalpha + balpha*(1.-aalpha)
+
 
 def saveToImg(arr,fname):
     print " - saving %s..."%fname
@@ -206,6 +223,7 @@ def saveToImg(arr,fname):
     imgout = np.clip(imgout,0.0,1.0)
     plt.imsave(fname,imgout)
 
+# this is not just for bool, also for floats (as grayscale)
 def saveToImgBool(arr,fname):
     saveToImg(np.outer(arr,np.array([1.,1.,1.])),fname)
 
@@ -243,9 +261,10 @@ normview = normalize(view)
 
 velocity = np.copy(normview)
 
-#this is a mask of pixels that have hit an object. We use it to ignore subsequent
-#collision when deciding modification to end colour
+#ignore all references to donemask. It's deprecated.
 donemask = np.zeros((numPixels),dtype=np.bool)
+
+# initializing the colour buffer
 object_colour = np.zeros((numPixels,3))
 object_alpha = np.zeros(numPixels)
 
@@ -405,6 +424,7 @@ else:
 
 print "- blending layers..."
 
+#deprecated blend function
 def blend(a1,a2,mask):
     mm = np.outer(mask,np.array([1.,1.,1.]))
     return np.logical_not(mm)*a1 + mm*a2
@@ -449,11 +469,4 @@ saveToImg(col_bg_and_obj,"tests/preproc.png")
 if BLURDO:
     saveToImg(hipass,"tests/hipass.png")
 
-# #unflattening of array
-# imgout = colour.reshape((RESOLUTION[1],RESOLUTION[0],3))
-# 
-# #clipping
-# imgout = np.clip(imgout,0.0,1.0)
-# 
-# plt.imshow(imgout)
-# plt.imsave('tests/test.png',imgout)
+
