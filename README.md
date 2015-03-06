@@ -19,6 +19,12 @@ It is still in development and will be presented on my site along with [my real 
 
 python, numpy, scipy
 
+## Textures
+
+My textures are too heavy to put on Github. To use the program, you need to create a `textures` folder and put a `bgedit.png` texture for the sky (a skysphere, x = lon, y = lat) and an `adisk.jpg` for the accretion disk.
+
+Texture sizes are irrelevant (these texture will never end up in the GPU). You can use your own texture names or formats by editing the source.
+
 ## How to run
 
 Create the `tests` folder, if it doesn't exist yet.
