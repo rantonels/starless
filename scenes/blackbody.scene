@@ -12,7 +12,7 @@ Stepsize=0.08
 
 [geometry]
 
-Cameraposition=0.,2.,-20.
+Cameraposition=0.,4.,-20.
 Fieldofview=0.7
 
 Lookat=0.,0.,0.
@@ -26,5 +26,14 @@ Diskouter=30.
 Horizongrid=0
 Disktexture=blackbody
 Skytexture=texture
-Skydiskratio=0.3
-Fogmult=0.2
+Skydiskratio=0.05
+Fogmult=0.4
+
+Diskmultiplier=100
+Diskalphamultiplier=4000
+
+Gain=.8
+Normalize=-1
+
+Blurdo=1
+Bloomcut=5.0
