@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.ndimage as ndim
 import scipy.misc as spm
-import random,sys,time
+import random,sys,time,os.path
 import datetime
+
+import blackbody as bb
 
 INV255 = 1./255.
 
@@ -35,6 +37,11 @@ for arg in sys.argv[1:]:
     
 
 
+if not os.path.isfile(SCENE_FNAME):
+    print "scene file \"%s\" does not exist"%SCENE_FNAME
+    sys.exit(1)
+
+
 #importing scene
 import ConfigParser
 
@@ -42,36 +49,31 @@ defaults = {
             "Distort":"1",
             "Fogdo":"1",
             "Blurdo":"1",
-            "Fogmult":"0.1"         
-
+            "Fogmult":"0.1",       
+            "Diskinner":"1.5",
+            "Diskouter":"4",
+            "Resolution":"160,120",
+            "Diskmultiplier":"100.",
+            "Diskalphamultiplier":"2000",
+            "Gain":"1",
+            "Normalize":"-1",
+            "Blurdo":"1",
+            "Bloomcut":"2.0",
+            "Iterations":"1000",
+            "Stepsize":"0.02",
+            "Cameraposition":"0.,1.,-10",
+            "Fieldofview":1.5,
+            "Lookat":"0.,0.,0.",
+            "Horizongrid":"1",
             }
 
 cfp = ConfigParser.ConfigParser(defaults)
 print "Reading scene %s..."%SCENE_FNAME
 cfp.read(SCENE_FNAME)
 
-#some default values
-#these should actually go in the "defaults" dict above
-#but right now I don't feel like copying them.
 
-RESOLUTION = (640,480)
-NITER = 1000
-STEP = 0.02
-
-CAMERA_POS = np.array([0.,1.,-10.])
-
-TANFOV = 0.8
-LOOKAT = np.array([0.,0.,0.])
-
-HORIZON_GRID = True
-
-FOGDO = True
-FOGMULT = 0.1
 FOGSKIP = 1
 
-BLURDO = True
-
-SKYTEXFNAME = "textures/bgedit.png"
 
 #this is never catched by except. WHY?
 ex = ConfigParser.NoSectionError
@@ -104,6 +106,20 @@ try:
     LOOKAT = np.array(map(lambda x:float(x),cfp.get('geometry','Lookat').split(',')))
     UPVEC = np.array(map(lambda x:float(x),cfp.get('geometry','Upvector').split(',')))
     DISTORT = int(cfp.get('geometry','Distort'))
+    DISKINNER = float(cfp.get('geometry','Diskinner'))
+    DISKOUTER = float(cfp.get('geometry','Diskouter'))
+
+    #options for 'blackbody' disktexture
+    DISK_MULTIPLIER = float(cfp.get('materials','Diskmultiplier'))
+    DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
+
+
+    GAIN = float(cfp.get('materials','Gain'))
+    NORMALIZE = float(cfp.get('materials','Normalize'))
+
+    BLOOMCUT = float(cfp.get('materials','Bloomcut'))
+
+  
 
 except KeyError:
     print "error reading scene file: insufficient data in geometry section"
@@ -126,6 +142,9 @@ except KeyError:
 #just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
 
+
+DISKINNERSQR = DISKINNER*DISKINNER
+DISKOUTERSQR = DISKOUTER*DISKOUTER
 
 
 print "Loading textures..."
@@ -205,10 +224,8 @@ def sixth(v):
 # this blends colours ca and cb by placing ca in front of cb
 def blendcolors(cb,balpha,ca,aalpha):
             #* np.outer(aalpha, np.array([1.,1.,1.])) + \
-    return np.clip(
-            ca +   
-            cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
-                ,0.,1.)
+    return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
+
 
 # this is for the final alpha channel after blending
 def blendalpha(balpha,aalpha):
@@ -325,7 +342,7 @@ for it in range(NITER):
     if DISK_TEXTURE != "none":
 
         mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
-        mask_distance = np.logical_and((pointsqr < 16.), (pointsqr > 2.25))  #whether it's close enough
+        mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
         
         diskmask = np.logical_and(mask_crossing,mask_distance)
 
@@ -347,7 +364,7 @@ for it in range(NITER):
                 uv = np.zeros((numPixels,2))
                 
                 uv[:,0] = (phi+np.pi)/(2*np.pi)
-                uv[:,1] = (np.sqrt(pointsqr)-1.5)/(4.0-1.5)
+                uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
 
                 diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
                 #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
@@ -355,7 +372,12 @@ for it in range(NITER):
                 diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
 
             #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
-
+            elif DISK_TEXTURE == "blackbody":
+                temperature = np.exp(bb.disktemp(pointsqr,9.2103))
+                intensity = bb.intensity(temperature)
+                diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+                diskalpha = np.clip(diskmask * DISK_ALPHA_MULTIPLIER *  intensity,0.,1.)
+                
 
             object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha) 
             object_alpha = blendalpha(diskalpha, object_alpha)
@@ -421,6 +443,7 @@ elif SKY_TEXTURE == 'none':
 else:
     col_bg = dbg_finvec
 
+print "MAX_OBJ = %f"%np.amax(object_colour)
 
 print "- blending layers..."
 
@@ -431,7 +454,10 @@ def blend(a1,a2,mask):
 
 #col_bg_and_obj = blend(col_bg,object_colour,donemask)
 
+
 col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
+
+print "MAX = %f"%np.amax(col_bg_and_obj)
 
 
 print "Postprocessing..."
@@ -439,7 +465,7 @@ print "Postprocessing..."
 #bloom
 
 if BLURDO:
-    hipass = np.outer(sqrnorm(col_bg_and_obj) > 2.0, np.array([1.,1.,1.])) * col_bg_and_obj
+    hipass = np.outer(sqrnorm(col_bg_and_obj) > BLOOMCUT, np.array([1.,1.,1.])) * col_bg_and_obj
     blurd = np.copy(hipass)
 
     blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
@@ -451,11 +477,30 @@ if BLURDO:
     blurd = blurd.reshape((numPixels,3))
 
 
-    #final colour
-    colour = np.clip(col_bg_and_obj + 0.3*blurd,0.,1.)#0.2*dbg_grid + 0.8*dbg_finvec
+    #blending bloom
+    colour = col_bg_and_obj + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
 
 else:
     colour = col_bg_and_obj
+
+print "MAX = %f"%np.amax(colour)
+
+
+
+#normalization
+if NORMALIZE > 0:
+    print "- normalizing..."
+    colour *= 1 / (NORMALIZE * np.amax(colour.flatten()) )
+    print "MAX = %f"%np.amax(colour)
+
+#gain
+print "- gain..."
+col_bg_and_obj *= GAIN
+print "MAX = %f"%np.amax(col_bg_and_obj)
+
+
+#final colour
+colour = np.clip(colour,0.,1.)
 
 
 print "Conversion to image and saving..."
