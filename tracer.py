@@ -6,6 +6,8 @@ import scipy.misc as spm
 import random,sys,time
 import datetime
 
+import blackbody as bb
+
 INV255 = 1./255.
 
 #defining texture lookup
@@ -42,8 +44,9 @@ defaults = {
             "Distort":"1",
             "Fogdo":"1",
             "Blurdo":"1",
-            "Fogmult":"0.1"         
-
+            "Fogmult":"0.1",       
+            "Diskinner":"1.5",
+            "Diskouter":"4"
             }
 
 cfp = ConfigParser.ConfigParser(defaults)
@@ -70,6 +73,9 @@ FOGMULT = 0.1
 FOGSKIP = 1
 
 BLURDO = True
+
+DISK_MULTIPLIER = 100.
+DISK_ALPHA_MULTIPLIER = 2000.
 
 SKYTEXFNAME = "textures/bgedit.png"
 
@@ -104,6 +110,8 @@ try:
     LOOKAT = np.array(map(lambda x:float(x),cfp.get('geometry','Lookat').split(',')))
     UPVEC = np.array(map(lambda x:float(x),cfp.get('geometry','Upvector').split(',')))
     DISTORT = int(cfp.get('geometry','Distort'))
+    DISKINNER = float(cfp.get('geometry','Diskinner'))
+    DISKOUTER = float(cfp.get('geometry','Diskouter'))
 
 except KeyError:
     print "error reading scene file: insufficient data in geometry section"
@@ -126,6 +134,9 @@ except KeyError:
 #just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
 
+
+DISKINNERSQR = DISKINNER*DISKINNER
+DISKOUTERSQR = DISKOUTER*DISKOUTER
 
 
 print "Loading textures..."
@@ -205,10 +216,8 @@ def sixth(v):
 # this blends colours ca and cb by placing ca in front of cb
 def blendcolors(cb,balpha,ca,aalpha):
             #* np.outer(aalpha, np.array([1.,1.,1.])) + \
-    return np.clip(
-            ca +   
-            cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
-                ,0.,1.)
+    return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
+
 
 # this is for the final alpha channel after blending
 def blendalpha(balpha,aalpha):
@@ -325,7 +334,7 @@ for it in range(NITER):
     if DISK_TEXTURE != "none":
 
         mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
-        mask_distance = np.logical_and((pointsqr < 16.), (pointsqr > 2.25))  #whether it's close enough
+        mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
         
         diskmask = np.logical_and(mask_crossing,mask_distance)
 
@@ -347,7 +356,7 @@ for it in range(NITER):
                 uv = np.zeros((numPixels,2))
                 
                 uv[:,0] = (phi+np.pi)/(2*np.pi)
-                uv[:,1] = (np.sqrt(pointsqr)-1.5)/(4.0-1.5)
+                uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
 
                 diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
                 #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
@@ -355,7 +364,12 @@ for it in range(NITER):
                 diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
 
             #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
-
+            elif DISK_TEXTURE == "blackbody":
+                temperature = np.exp(bb.disktemp(pointsqr,9.2103))
+                intensity = bb.intensity(temperature)
+                diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+                diskalpha = np.clip(diskmask * DISK_ALPHA_MULTIPLIER *  intensity,0.,1.)
+                
 
             object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha) 
             object_alpha = blendalpha(diskalpha, object_alpha)
