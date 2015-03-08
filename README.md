@@ -21,13 +21,13 @@ python, numpy, scipy
 
 ## Textures
 
-My textures are too heavy to put on Github. To use the program, you need to create a `textures` folder and put a `bgedit.png` texture for the sky (a skysphere, x = lon, y = lat) and an `adisk.jpg` for the accretion disk.
+My textures are too heavy to put on Github. To use them in the program, you need to create a `textures` folder and put a `bgedit.png` texture for the sky (a skysphere, x = lon, y = lat) and an `adisk.jpg` for the accretion disk (x = angle, y = radius).
 
 Texture sizes are irrelevant (these texture will never end up in the GPU). You can use your own texture names or formats by editing the source.
 
-## How to run
+Texture files are not needed if rendering with modes that don't use them.
 
-Create the `tests` folder, if it doesn't exist yet.
+## How to run
 
 Write a .scene file. Examine the provided .scenes and model your file on them.
 
@@ -42,3 +42,7 @@ $ python tracer.py -d yourscene.scene
 and wait. The rendered image will be in the `tests` folder under the name `out.png`, along with some other useful images.
 
 To run the full render, just omit the `-d` option. The results will still be saved in `test`.
+
+## Writing .scene files
+
+Please refer to the `scenes/default.scene` file for a commented overview of all options.
