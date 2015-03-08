@@ -6,7 +6,7 @@ Stepsize=0.04
 
 [hifi]
 
-Resolution=1920,1080
+Resolution=1024,786
 Iterations=1600
 Stepsize=0.02
 

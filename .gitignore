@@ -3,3 +3,5 @@ tests
 out
 *.pyc
 textures/
+*.lprof
+*.prof

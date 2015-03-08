@@ -212,7 +212,8 @@ def norm(vec):
     return np.sqrt(np.einsum('...i,...i',vec,vec))
 
 def normalize(vec):
-    return vec/ (np.outer(norm(vec),np.array([1.,1.,1.])))
+    #return vec/ (np.outer(norm(vec),np.array([1.,1.,1.])))
+    return vec / (norm(vec)[:,np.newaxis])
 
 # an efficient way of computing the sixth power of r
 # much faster than pow!
@@ -230,7 +231,8 @@ def sixth(v):
 # this blends colours ca and cb by placing ca in front of cb
 def blendcolors(cb,balpha,ca,aalpha):
             #* np.outer(aalpha, np.array([1.,1.,1.])) + \
-    return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
+    #return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
+    return  ca + cb * (balpha*(1.-aalpha))[:,np.newaxis]
 
 
 # this is for the final alpha channel after blending
@@ -292,7 +294,8 @@ object_colour = np.zeros((numPixels,3))
 object_alpha = np.zeros(numPixels)
 
 #squared angular momentum per unit mass (in the "Newtonian fantasy")
-h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
+#h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
+h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
 
 print "Starting pathtracing iterations..."
 sys.stdout.flush()
@@ -321,7 +324,7 @@ for it in range(NITER):
     
     if DISTORT:
         #this is the magical - 3/2 r^(-5) potential...
-        accel = - 1.5 * h2 *  point / np.outer(sixth(point),np.array([1.,1.,1.]))
+        accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
         velocity += accel * STEP
 
 
@@ -383,16 +386,20 @@ for it in range(NITER):
                 temperature = np.exp(bb.disktemp(pointsqr,9.2103))
 
                 if REDSHIFT:
-                    disc_velocity = 0.70710678 * np.einsum('i,ij->ij',
-                                np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5) ,
+                    R = np.sqrt(pointsqr)
+
+                    disc_velocity = 0.70710678 * \
+                                np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
                                 np.cross(UPFIELD, normalize(point))
-                                )
+                                
 
                     gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
 
-                    opz = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
+                    opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
                 
-                    temperature /= opz.clip(0.1)
+                    opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
+
+                    temperature /= (opz_doppler*opz_gravitational).clip(0.1)
 
                 intensity = bb.intensity(temperature)
                 diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
