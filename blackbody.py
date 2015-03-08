@@ -22,11 +22,12 @@ def intensity(T):
     #this is basically planck's law integrated over the visible spectrum, which is assumed
     #infinitesimal. The actual constant could have been computed but it was safer
     #and faster to gnuplot-fit it with a gradient from http://www.vendian.org/mncharity/dir3/blackbody/intensity.html
-    return 1./( np.exp(29622.4 / T) - 1)
+    return 1./( np.exp(29622.4 / T.clip(1.)) - 1)
 
 
 ramp = spm.imread('data/colourtemp.jpg')[0,:,:]/255.
 rampsz = ramp.shape[0]
+
 
 def colour(T):
     indices = np.clip( (T-1000)/29000. * rampsz,0.,rampsz-1.0001)

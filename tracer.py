@@ -65,6 +65,7 @@ defaults = {
             "Fieldofview":1.5,
             "Lookat":"0.,0.,0.",
             "Horizongrid":"1",
+            "Redshift":"1"
             }
 
 cfp = ConfigParser.ConfigParser(defaults)
@@ -112,7 +113,7 @@ try:
     #options for 'blackbody' disktexture
     DISK_MULTIPLIER = float(cfp.get('materials','Diskmultiplier'))
     DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
-
+    REDSHIFT = float(cfp.get('materials','Redshift'))
 
     GAIN = float(cfp.get('materials','Gain'))
     NORMALIZE = float(cfp.get('materials','Normalize'))
@@ -191,9 +192,10 @@ pixelindices = np.arange(0,RESOLUTION[0]*RESOLUTION[1],1)
 #total number of pixels
 numPixels = pixelindices.shape[0]
 
-#ones (useful for const->array conversion)
+#useful constant arrays
 ones = np.ones((numPixels))
 ones3 = np.ones((numPixels,3))
+UPFIELD = np.outer(ones,np.array([0.,1.,0.]))
 
 #random sample of floats
 ransample = np.random.random_sample((numPixels))
@@ -326,7 +328,6 @@ for it in range(NITER):
     #useful precalcs
     pointsqr = sqrnorm(point)
     phi = np.arctan2(point[:,0],point[:,2])
-    theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
     normvel = normalize(velocity)
 
 
@@ -353,6 +354,7 @@ for it in range(NITER):
         if (diskmask.any()):
 
             if DISK_TEXTURE == "grid":
+                theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
                 diskcolor =     np.outer( 
                         np.mod(phi,0.52359) < 0.261799, 
                                     np.array([1.,1.,0.]) 
@@ -377,11 +379,28 @@ for it in range(NITER):
 
             #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
             elif DISK_TEXTURE == "blackbody":
+
                 temperature = np.exp(bb.disktemp(pointsqr,9.2103))
+
+                if REDSHIFT:
+                    disc_velocity = 0.70710678 * np.einsum('i,ij->ij',
+                                np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5) ,
+                                np.cross(UPFIELD, normalize(point))
+                                )
+
+                    gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
+
+                    opz = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
+                
+                    temperature /= opz.clip(0.1)
+
                 intensity = bb.intensity(temperature)
                 diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
-                diskalpha = np.clip(diskmask * DISK_ALPHA_MULTIPLIER *  intensity,0.,1.)
-                
+
+                iscotaper = np.clip((pointsqr-DISKINNERSQR)*0.5,0.,1.)
+
+                diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
+             
 
             object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha) 
             object_alpha = blendalpha(diskalpha, object_alpha)
@@ -395,6 +414,7 @@ for it in range(NITER):
     if mask_horizon.any() :
 
         if HORIZON_GRID:
+            theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
             horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
         else:
             horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))

@@ -1,19 +1,19 @@
 [lofi]
 
 Resolution=160,120
-Iterations=1400
-Stepsize=0.08
+Iterations=800
+Stepsize=0.04
 
 [hifi]
 
 Resolution=1920,1080
-Iterations=1400
-Stepsize=0.08
+Iterations=1600
+Stepsize=0.02
 
 [geometry]
 
-Cameraposition=0.,4.,-20.
-Fieldofview=0.7
+Cameraposition=0.,4.3,-9.
+Fieldofview=1.5
 
 Lookat=0.,0.,0.
 
@@ -27,7 +27,7 @@ Horizongrid=0
 Disktexture=blackbody
 Skytexture=texture
 Skydiskratio=0.05
-Fogmult=0.4
+Fogmult=0.3
 
 Diskmultiplier=100
 Diskalphamultiplier=4000
@@ -36,4 +36,4 @@ Gain=.8
 Normalize=-1
 
 Blurdo=1
-Bloomcut=5.0
+Bloomcut=4.0
