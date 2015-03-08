@@ -27,6 +27,16 @@ Texture sizes are irrelevant (these texture will never end up in the GPU). You c
 
 Texture files are not needed if rendering with modes that don't use them.
 
+## Installation
+
+Clone with git:
+
+```
+git clone https://github.com/rantonels/starless.git
+```
+
+**or** download this [zip file](https://github.com/rantonels/starless/archive/master.zip) and extract.
+
 ## How to run
 
 Write a .scene file. Examine the provided .scenes and model your file on them.
@@ -41,7 +51,7 @@ $ python tracer.py -d yourscene.scene
 
 and wait. The rendered image will be in the `tests` folder under the name `out.png`, along with some other useful images.
 
-To run the full render, just omit the `-d` option. The results will still be saved in `test`.
+To run the full render, just omit the `-d` option. The results will still be saved in `tests`.
 
 ## Writing .scene files
 
