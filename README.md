@@ -32,7 +32,7 @@ Texture files are not needed if rendering with modes that don't use them.
 Clone with git:
 
 ```
-git clone https://github.com/rantonels/starless.git
+$ git clone https://github.com/rantonels/starless.git
 ```
 
 **or** download this [zip file](https://github.com/rantonels/starless/archive/master.zip) and extract.
