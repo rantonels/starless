@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.ndimage as ndim
 import scipy.misc as spm
-import random,sys,time,os.path
+import random,sys,time,os
 import datetime
 
 import blackbody as bb
@@ -146,6 +146,10 @@ CAMERA_POS = np.array(CAMERA_POS)
 DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
 
+
+#ensuring existence of tests directory
+if not os.path.exists("tests"):
+    os.makedirs("tests")
 
 print "Loading textures..."
 if SKY_TEXTURE == 'texture':
@@ -440,8 +444,10 @@ if SKY_TEXTURE == 'texture':
     col_bg = col_sky
 elif SKY_TEXTURE == 'none':
     col_bg = np.zeros((numPixels,3))
-else:
+elif SKY_TEXTURE == 'final':
     col_bg = dbg_finvec
+else:
+    col_bg = np.zeros((numPixels,3))
 
 print "MAX_OBJ = %f"%np.amax(object_colour)
 

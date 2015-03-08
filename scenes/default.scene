@@ -1,0 +1,101 @@
+# Default starless .scene file
+
+
+# Test specifications
+# this settings apply when rendering with the -d option
+[lofi]
+
+# output resolution
+Resolution=160,120
+
+#number of raytracing steps
+Iterations=1000
+
+#size of integration step
+Stepsize=0.02
+
+
+# Full render options
+# apply when rendering without the -d option
+[hifi]
+
+Resolution=1920,1080
+Iterations=1000
+Stepsize=0.02
+
+
+# From now on, settings apply to both tests and full renders
+
+[geometry]
+
+#Position of the camera in units of r_S
+#x,z are the disc's plane
+Cameraposition=0.,1.,-10.
+
+#Tangent of field of view
+Fieldofview=1.0
+
+#Self explanatory
+#fixes the view vector
+Lookat=0.,0.,0.
+
+#The vector defining the "up" direction
+#(it's actually projected on the orthogonal subspace to the view vector)
+Upvector=.3,1.,0.
+
+
+#Disc inner/outer radii
+Diskinner=1.5
+Diskouter=4.
+
+
+[materials]
+
+#Whether to draw a grid on the horizon (0/1)
+Horizongrid=0
+
+#Disk rendering mode
+#	none:		don't draw
+#	texture:	use texture adisk.jpg for both colour and alpha
+#	grid:		draw blue/white checkered
+#	solid:		draw solid white
+#	blackbody:	use the realistic 'blackbody' model
+Disktexture=texture
+
+#blackbody disc options
+#these options are ignored when Disktexture != blackbody
+
+#multiplier for impact of computed planckian brightness in disc colour brightness
+Diskmultiplier=100.
+#multiplier for impact of computed planckian brightness in disc alpha
+Diskalphamultiplier=2000.
+
+
+#Sky rendering mode
+#	none:		solid black
+#	texture:	use texture bgedit.png
+#	final:		normalized final ray direction
+Skytexture=texture
+
+#Ratio of sky brightness / disk brightness
+Skydiskratio=0.3
+
+#Toggle dust (0/1)
+Fogdo=1
+#Dust intensity multiplier
+Fogmult=0.2
+
+
+#Postprocessing options
+
+#Bloom threshold. This is actually expressed as a squared norm of the colour (r*r + g*g + b*b)
+#take note that the blackbody mode uses HDR and squared colours > 3.0 are possible
+Bloomcut=0.8
+
+#Gain
+Gain=1
+
+#Normalize.
+#	-1:			don't normalize
+#	any positive x:		make it so that x times the brightest pixel channel is sent to 1
+Normalize=-1
