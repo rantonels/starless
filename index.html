@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+
+		<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css" />
+
+		<link rel="stylesheet" href="http://getbootstrap.com/examples/starter-template/starter-template.css">
+		<title>Raytracing a Black Hole</title>
+
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<script src="//netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+
+<script type="text/javascript"
+  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+</script>
+		<link rel="stylesheet" href="/~antonell/font-awesome/css/font-awesome.min.css">	
+
+		<link rel="stylesheet" href="/~antonell/bootstrap-social/bootstrap-social.css">	
+
+		<style>
+			html, body {
+			    max-width: 100%;
+			    overflow-x: hidden;
+			}
+			.img-mrg {
+				margin-top:20px;
+				margin-bottom:20px;
+			}
+		</style>
+
+	</head>
+	<body>
+
+		<nav class="navbar navbar-inverse navbar-fixed-top">
+      <div class="container">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../">My Home</a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li class="active"><a href="#">Raytracing</a></li>
+            <li><a href="../schwarzschild/">Real-time Black Hole</a></li>
+            <li><a href="http://github.com/rantonels/starless">Source</a></li>
+	    <li><a href="http://www.reddit.com/r/Physics/comments/2y61ed/my_new_opensource_black_hole_raytracer_and_a/">Reddit Post</a></li>
+          </ul>
+        </div><!--/.nav-collapse -->
+      </div>
+    </nav>
+
+		<div class="container">
+			<img src="pics/overview.jpg" class="align-center img-responsive">
+
+			<div class="col-md-12" style="margin-y:30px">
+				<h1 class="text-center">How to draw a Black Hole</h1>
+				<p class="lead text-center">Geodesic raytracing in curved spacetime</p>
+			</div>
+
+
+			<div class="row">
+				<p>It's now clear I'm on a Black Hole binge (I can stop when I want, by the way). They're endlessly fascinating. My recent interest was in particular focused on simulating visualizations of the Schwarzschild geometry. I was preoccupied by the problem of generating a decent accurate representation of how the curvature of such a spacetime affects the appearance of the sky (since photons from distance sources ride along geodesics bent by the Black Hole), for the purpose of creating an interactive simulation. <a href="../schwarzschild/">This</a> was the result (it runs in your browser). The trick was of course to precalculate as much as possible about the deflection of light rays. It worked ok-ish, but the simulation is of course very lacking in features, since it's not actually doing any raytracing (for the laymen: reconstructing the whereabouts of light rays incoming in the camera back in time) on its own.</p>
+
+				<p>This project, instead, aims to shatter these shortcoming by ditching efficiency/interactivity in the most naive way: it's a <strong>full CPU raytracer</strong>, taking all the time it needs to render pictures. The image above was rendered with this program - it took ~15 minutes on my laptop.</p>
+
+				<p>This is neither anything new nor is it any better than how it's been done before. It's just really fun for me. I'm writing this page to share not only end-results such as the image above (<a href="http://imgur.com/a/kocqC">also because some people did it better</a>) but also the <strong>process of building these pictures</strong>, with a discussion/explanation of the physics involved and the implementation. Ideally, this could be of inspiration or guidance to people with a similar intent.</p>
+			</div>
+
+			<div class="row">
+				<h1>A bit of pseudo-Riemannian optics</h1>
+			</div>
+
+			<div class="row">
+				<h2>The shadow</h2>
+				<p>If you have already tried my <a href="../schwarzschild/">live applet</a>, you should be familiar with this view:</p>
+				<img src="pics/00.png" class="center-block img-responsive img-mrg">
+
+				<p>You should excuse the aliasing (at this resolution, the sky is basically just noise). However, you shouldn't have problems making out the salient feature of the image, namely the black disk and the weird distortion ring.</p>
+				<p>It's often pointed out that it's incorrect to say that the black disk is the event horizon. In fact, it's incorrect to say that <em>a region of an image</em> is <em>an object</em>. These are <strong>images</strong> of things. Now, it's true that there will be rays that, when backtraced from your eye, will end up in the event horizon. These will be black pixels, since no photon could ever have followed that path goin forward, from inside the black hole to your eye. This black disk is thus very clearly the <strong>image of the event horizon</strong>, in the sense that if you draw (in the far past) something right above the horizon, outside observers will be able to see it right on that black disk (we will actually perform this experiment later). This black region is also called "shadow" of the BH in some pulbications.</p>
+
+				<img src="../schwarzschild/scrots/bhscattersmall.png" class="center-block img-responsive img-mrg">
+
+				<p>What it's interesting to note, however, is that this is at the same time <strong>the image of the photon sphere</strong>. The gnuplot graph above depicts geodesics of incoming photons from infinity (looking at the BH from far away zooming in) along with the EH (black) and the PS (green). The photon sphere is \( \frac{3}{2} \) times the event horizon (in Schwarzschild \(r\)) and is the location where circular orbits of light around the BH are allowed (though unstable). In the graph, identify rays that fall to their death and those who get only scattered (and thus end up on another point on the celestial sphere). You see that absorbed rays are those arriving with an impact parameter of less than ~ 2.5 radii. This is the apparent radius of the black disk, and it's <strong>significantly larger</strong> than both the EH and the PS.</p>
+				
+				<p>Anyways, the relevant trivia here is this:</p>
+
+				<blockquote>A light ray infalling in the photon sphere in free fall will also reach the event horizon.</blockquote>
+				<p>This implies that the image of the photon sphere is included in that of the horizon. However, since the horizon is very clearly inside the photon sphere, the image of the former must also be a subset of that of the latter. Then the two images should coincide.<p>
+
+				<p>Why should you care that the black disk is also the image of the PS? Because it means that the <em>edge</em> of the black disk is populated by photons that <strong>skim</strong> the photon sphere. A pixel right outside the black disk corresponds to a photon that (when tracing backwards) spirals into the photon sphere, getting closer and closer to the unstable circular orbit, winding many times (the closer you look, the more it winds), then spiraling out - since the orbit is unstable - and escaping to infinity.</p>
+
+				<p>This behaviour will produce an interesting optical phenomenon and is basically getting close to a separatrix in a dynamical system. In the limit, a ray thrown exactly on the edge will spiral in forever, getting closer and closer to the photon sphere circular orbit.</p>
+
+			</div>
+
+			<div class="row">
+				<h2>The effect on the celestial sphere</h2>
+				<p>I'm not gonna focus a lot on this, because this was the main goal of the <a href="../schwarzschild">live applet</a>, and you can get a much better idea of the distortions induced on the sky through that (which also includes an UV grid option so the distortion is clearer).</p>
+				<p>Just a couple of things about the Einstein ring. The Einstein ring is distinguishable as an optical feature because it is the image of a single point, namely that on the sky directly opposite the observer. The ring forms at the view angle where rays from the observer are bent parallel. Outside of it, rays are not bent enough and remain divergent; inside, they are bent too much and converge and in fact can go backwards, or even wind around multiple times, as we've seen.</p>
+				<p>But then, think about this: if we get close enough to the black disk, light rays should be able to wind around once and then walk away parallel. There we should see a secondary Einstein ring. In fact, rings of any order (any number of windings.) Also, there should be "odd" rings inbetween where light rays are bent parallel, but directed towards the viewer. This infinite series of rings is there, but it's absolutely invisible in this image (in fact, in most of them) as they are very close to the disk edge.</p>
+
+			</div>
+
+			<div class="row">
+					<h2>The distortion of the Event Horizon</h2>
+					<img src="pics/01small.png" class="center-block img-responsive img-mrg">
+
+					<p>In this new image, there are a couple of things that have changed. First of all, this was rendered at a higher resolution and with filtering for the background, so as to be more readable. Then, I've zoomed in on the hole (haven't gotten closer, we're still at ~ 10 radii, just zoomed in). But most importantly, I have drawn <strong>a grid on the horizon.</strong></p>
+					<p>The horizon is "just a sphere". Technically, it does not work like a standard Riemannian sphere with a spacial metric. The horizon is lightlike! A pictorial way of saying this is that it's going outwards at the speed of light. However, in Schwarzschild coordinates, it's still a \(r=1\) surface, and we can use \(\phi\) and \(\theta\) as longitude and latitude. So it's possible to draw a coordinate grid in a canonical way. Then what you're seeing is how that grid would look.</p>
+
+					<p>The grid allows us to take note of a peculiar fact we could have also deduced by analizing the photon scattering/absorption graph above: </p>
+					
+					<blockquote>The whole surface of the horizon is visible at the same time, from any point</blockquote>
+					<p>This is very interesting. When you look at a stationary sphere in standard flat spacetime, you can see at most 50% of its surface at any given time (less if you're closer, because of perspective). The horizon, instead, is <strong>all visible simultaneously</strong>, mapped in the black disk: notice in particular the North and South poles. If you're a mathematician, you'll argue that you cannot map diffeomorphically a sphere and a disk, and in fact the map becomes singular at the point of the horizon that is opposite to the observer, that is in fact mapped in the limit to the edge of the disk. <em>Some</em> mathematicians might be also interested in the fact that I suspect the punctured sphere \(\rightarrow\) disk map is conformal/biholomorphic, but I have no sources for this.</p>
+
+
+			</div>
+
+			<div class="row">
+				<h2>Adding an accretion disk</h2>
+				<img src="pics/02smalledit.png" class="center-block img-responsive img-mrg">
+				<p>What modern black hole rendering would it be without an accretion disk? While it's certainly debatable whether Nolan's <em>Interstellar</em> was actually watchable, not to mention accurate, we can certainly thank the blockbuster for popularizing the particular way the image of an accretion disk is distorted. Here we have an infinitely thin, flat, horizontal accretion disk extending from the photon sphere (this is very unrealistic, orbits below \(3 r_S \) are unstable. More below) to 4 radii, coloured checkered white and blue on the top and white and green on the bottom. It is evident, with this colouring, that we've encountered another case of seeing 100% of something at the same time.</p>
+			       
+				<p>For this image, I moved the observer up a bit, so he can take a better look at the disk. You can see <strong>two main images of the disk</strong>, one of the upper face, and one, inside, of the lower. The blue image has the far section of the upper disk distorted to arch above the shadow of the BH. This happens because a ray pointing right above the black hole is bent down to meet the upper surface of the disk behind the hole, opposite the observer.</p>
+
+				<p>This also explains the very existence of the green image: rays going below are bent to meet the lower surface, still behind the hole. The green image, if you look closely, extends all around the event horizon image, but it's much thinner in the upper section. This corresponds to light rays that go above the BH, are bent into an almost full circle around the hole and hit the lower surface in the <strong>front</strong> section of the disk.</p>
+
+				<p>Of course, it's easy to deduce that there is an infinite series of accretion disk images, getting very quickly thinner and closer to the edge. The next-order image, in blue, is already very thin but faintly visible in the lower portion of the edge.</p>
+			</div>
+
+			<div class="row">
+				<h2>GIFs are still cool in 2015</h2>
+				<img src="pics/curvaturesmall.gif" class="center-block img-responsive img-mrg">
+				<p>In this spastic animation I turn the deflection of light on/off (formally, Schwarzschild/Minkowski) to make clear some of the points we went over before.</p>
+				<p>The lower surface is blue and not green because I'm lazy, use your imagination or something.</p>
+			</div>
+
+			<div class="row">
+				<h1>Enough science.</h1>
+				<p>Enough with the informative pixelated 90's uni mainframe renderings with garish colors. Here's some "pop" renders (click for full size)
+			
+
+				<div class="row">
+					<div class="col-xs-6 col-md-6 ">
+						<div class="thumbnail">
+					    <a href="pics/xuWzJRn.jpg" >
+					      <img src="pics/xuWzJRn_thumb.jpg">
+					    </a>
+					      <div class="caption">
+						This image was rendered by <a href="http://reddit.com/u/dfzxh">/u/dfzxh</a> with x4 supersampling.
+					      </div>
+						</div>
+					</div>
+					<div class="col-xs-6 col-md-6 ">
+					    <a href="pics/wpmaterial.jpg" class="thumbnail">
+					      <img src="pics/wpmaterial_thumb.jpg">
+					    </a>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-xs-6 col-md-6 ">
+					    <a href="pics/3dorder.jpg" class="thumbnail">
+					      <img src="pics/3dorder_thumb.jpg">
+					    </a>
+					</div>
+					<div class="col-xs-6 col-md-6 ">
+					    <a href="pics/taglio.jpg" class="thumbnail">
+					      <img src="pics/taglio_thumb.jpg">
+					    </a>
+					</div>
+
+				</div>
+
+				<p>Yeah, they're nothing special. Not an artist here. Let's get back temporarily to the science: the <a href="pics/3dorder.jpg">third image</a>, the one that doesn't seem to make any sense, is actually very precious. It's a zoom on the region between the upper edge of the black disk and the main ("first blue") image of the accretion disk. The observer is placed on the outer rim of the accretion disk itself and zooms in on this detail. The goal was to image as many orders of rings as possible. Three orders are visible: the lighter zone at the top is just the lower rim of the first image of the top-far surface of the disk. The strip at the bottom, below a calm sea of outstretched stars, is the superior part of the second image, the "first green" one, of the bottom-front of the disk. At the very bottom is a thin line of light not more than a pixel wide, glued to the black disk of the photon sphere. This is mainly the third image, the "second blue": it's the image again of the top-far surface, but after the light has completed an additional winding around the black hole. Merged with it, but increasingly thin, are all subsequent higher-order images. Ok, this is something worthy of &lt;blockquote&gt; tags:</p>
+				
+				<blockquote>There are infinite images of both the upper and lower surface of the accretion disk, and they all show the whole surface simultaneously. Moreover, except for the very first, these images don't pass in front of the black disk nor eachother, and are thus "concentric".</blockquote>
+				
+				<p>Marvelous.<br></p>
+
+				<div class="panel panel-default" style="margin-top:20px">
+					<div class="panel-body">
+					<h4>I'm taking render requests</h4>
+					<p>Are you interest in a specific render, but aren't willing to go through the trouble of installing the program and rendering it yourself? Just <a href="http://reddit.com/u/rantonels">hit me up on Reddit</a> or send me an e-mail. It takes no more than 10-20 minutes for 1080p on my laptop.</p>
+					</div>
+				</div>
+
+			</div>
+
+			<div class="row">
+				<h1>Realistic accretion disc</h1>
+				<p>The accretion disc in the renders above is cartoony. It's just a disc with a stupid texture splattered on it. What happens when in the visual appearance of the disc we include physics-aware information? What happens when we include redshift from orbital motion, for example?</p>
+				<p>A popular model for an accretion disc is an infinitely thin disc of matter in almost circular orbit, starting at the ISCO (Innermost Stable Circular Orbit, \(3 r_s\)), with a power law temperature profile \(T \sim r^{-a} \). I'll use the extremely simple
+
+				\[ T \sim r^{-3/4} \]
+
+				which is most definitely not ok in GR for realistic fluids, but it'll do (you'll see it's not like you can tell the difference anyway).</p>
+
+				<p>A free parameter now is the overall scale for the temperatures, for example the temperature at the ISCO. This temperature is <strong>immense</strong> for most black holes. We're talking <strong>hundreds of millions</strong> of Kelvin; it's difficult to imagine any human artefact that could <em>survive</em> being exposed to the light (peaking in X-rays) of a disc at those temperatures, let alone capture anything meaningful on a CCD. We then really have to tone it down. Apparently supermassive black holes are colder, but not enough. We need to pull it down to around 10 000 K at the ISCO for us to be able to see anything. This is highly unaccurate, but it's all I can do.</p>
+
+				<p>We need to ask ourselves two questions. One: <strong>what colour</strong> is a blackbody at that temperature. Two: <strong>how bright</strong> is it? Formally, the answer to those two questions is in the scalar product of the functions describing R,G,B channels with the black body spectrum. In practice, one uses some approximations.</p>
+
+				<p>For colour, <a href="http://www.tannerhelland.com/4435/convert-temperature-rgb-algorithm-code/">this formula</a> by Tanner Helland is accurate and efficient, but it involves numerous conditionals which are not feasible with my raytracing setup (see below for details). The fastest way is to use a lookup texture:</p>
+				<img src="http://www.vendian.org/mncharity/dir3/blackbody/UnstableURLs/scale03_E.jpg" class="center-block img-responsive img-mrg">
+
+				<p>This texture is one of many goodies from <a href="http://www.vendian.org/mncharity/dir3/blackbody/">Mitchell Charity's "What color is a blackbody?"</a>. (For reference, it corresponds to whitepoint E).</p>
+
+				<p>This runs from 1000 K to 30 000 K, higher temperatures are basically the same shade of blue. Since there is an immense difference in brightness between temperatures, this texture cannot and does not encode brightness; rather, the colours are normalized. It is our duty to compute relative brightness and multiply. We can use an analytic formula for that. If we assume that the visible spectrumis very narrow, then the total visible intensity is proportional to the blackbody spectrum itself:
+
+				\[ \frac{1}{\lambda^5} \frac{1}{ \exp( \frac{hc}{\lambda k_B T}) - 1 } \]
+
+				where I got rid of stupid overall constants (we're going to rescale brightness anyway to see anything). We can just plug in \(\lambda\) roughly in the visible spectrum range and we get that brightness is proportional to:
+
+				\[ ( e^ { \frac{29622.4 \text{K}}{T}  } - 1 )^{-1} \]
+
+				That's easy enough. As a check, we note that relative intensity quickly drops to zero when T goes to zero, and is only linear in T as T goes to infinity. </p>
+
+				<p>So here's basically what you would see, when standing above an hypothetical 10 000 K black hole accretion disc, with one hell of a filter:</p>
+
+				<img src="pics/bb.jpg" class="center-block img-responsive img-mrg">
+
+				<p>(this does not include yet the effects of redshift). As you can see, the brightest part of the disc is completely white, because it saturates the colour channels. If I scale down those channels to fit in the 0.0-1.0 range, the outer parts of the disk become faint or black. The growth in brightness is too large for us to appreciate. I've tried to depict it in postprocessing through a bloom effect to make really bright parts bleed instead of just clip, but it's hardly sufficient.</p>
+
+				<h3>Redshift</h3>
+
+				<p>I discusses the orbital speeds in the Schwarzschild geometry in the explanation for the live applet. To compute redshift, we use the special-relativistic redshift formula:
+
+	    \[(1+z)_\text{Doppler} = \frac{ 1 - \beta \cos(\theta) } {\sqrt{1-\beta^2} } \]
+
+				Where as \(\cos(\theta) \) is the cosine of the angle between the ray direction when it's emitted by the disc and the disc local velocity, all computed in the local inertial frame associated with the Schwarzschild coordinates. This formula is correct in this context because muh equivalence principle.</p>
+
+				<p>This is to be multiplied with the gravitational redshift factor:
+
+				\[(1+z)_\text{Gravitational} = (1 - r^{-1})^{-1/2} \]
+
+				this factor does not depend on the path of the light ray, only on the emission radius, because the Schwarzschild geometry is stationary.</p>
+
+				<p>This also means that the contribution to gravitational redshift due to the position of the observer is constant over the whole field of view. All our image gets a constant overall blueshift because we're deep in the hole's well. This effect therefore is just applying a tint over our image, and we ignore it.</p>
+				
+				<p>We also neglect redshift from observer motion, because our observer is Schwarzschild-stationary. The final result is this:<p>
+
+				<img src="pics/bb_redshift.jpg" class="center-block img-responsive img-mrg">
+
+				<p>This is at a smaller resolution because it takes <em>so long</em> to render on my laptop (square roots are bad, kids).</p>
+				<p>Anyways, it looks thousands of time less scenographic than the other renders (mostly because the inner edge of the disk is already far away enough from the EH that lensing looks quite underwhelming), but at least it's <em>accurate</em>, if you managed to find a 10 000 K black hole and some really good sunglasses, that is.</p>
+
+				<p>Another shot from a closer distance. I tweaked saturation unnaturally up so you can tell better:</p>
+
+				<img src="pics/inside_bb.jpg" class="center-block img-responsive img-mrg">	
+
+
+			</div>
+
+			<div class="row">
+				<h1>Writing a black hole raytracer</h1>
+				<h3><a href="https://github.com/rantonels/starless">Source on Github</a></h3>
+				<p>There is very obviously a massive difference between understanding the qualitative aspects of black hole optics and building a numerical integrator that spits out 1080p ok-ish wallpaper material. Last time I neglected the aspect of explaining my thought processes in coding and I put up a really messy git repo. I want to go a little more in detail now and will try to mantain the code tidier and commented.</p>
+				<p>I don't want this raytracer to be good, solid, fast. I want it to be easy and hackable, so that people can be <em>inspired</em> by it, may it be because they see potential for improvement or because it's so sh***y it makes them want to make their own. So here's a quick walkthrough of the algorithms and implementation.</p>
+			</div>
+
+			<div class="row">
+				<h2>The "magic" potential</h2>
+				<p>So, General Relativity, right. Easy. Take the Schwarzschild metric, find the Christoffel symbols, find their derivative, write down the geodesic equation, change to some cartesian coordinates to avoid endless suffering, get an immense multiline ODE, integrate. That's pretty much it.</p>
+
+				<p>Just kidding. Of course there's a trick.</p>
+
+				<p>If you remember <a href="../schwarzschild/">last time</a>, I derived the following equation for the orbit of a massless particle in its orbital plane in a Schwarzschild geometry (\(u=1/r\)):
+
+				\[ u''(\phi) + u = \frac{3}{2} u^2 \]
+
+				The trick is to recognize that this is in the form of a <strong>Binet equation</strong>. If you have an absolutely massive and Newtonian particle in a Newtonian central potential:
+
+				\[ \frac{d^2}{dt^2} \vec x = m F(r) \]
+
+				then the particle will obviously move in its orbital plane, and will satisfy the Binet equation for \(u(\phi)\):
+				
+				\[ u'' + u = - \frac{1}{m h^2 u^2} F(u) \]
+
+				Where the prime is \(\frac{d}{d\phi}\), \(m\) is the mass and \(h \) is the angular momentum per unit mass. This is an equation for the orbit, not an equation of motion. It does not tell you anything about \(u(t)\) or \(\phi(t)\), just the relationship between \(u\) and \(\phi\).</p>
+
+				<p>Let's pause a moment to ponder what this is actually telling us. It says that <em>if</em> we were to evolve an hypothetical mechanical system of a particle under a certain central force, its trajectory will be a solution to the Binet equation. Then the mechanical system becomes a computational tool to solve the latter.</p>
+				<p>What I propose here it's exactly this. We put \(m=1\) and take the (unphysical, whatever) simple system of a point particle in this specific force field:
+
+				\[ \vec F(r) = - \frac{3}{2} h^2 \frac{\hat r}{r^5} \]
+
+				where \(h\) is some constant, and integrate that numerically - it's very easy. Then the solution \(\vec x (T) \), where \(T\) is the abstract time coordinate for this system, is actually a parametrization of the unique solution for the corresponding Binet equation, <strong>which is exactly the geodesic equation</strong>.</p>
+				<p>So we solve Newton's equation in cartesian coordinates, which is the easiest thing ever; I use the leapfrog method instead of RK4 because it's simple, reversible and preserves the constants of motion. Then what I obtain is just the actual lightlike geodesic; with \(T\) a parameter running along it (distinct from both Schwarzschild \(t\) and proper time, that doesn't exist).</p>
+				<p>Numerically, for each ray, we take track of a position variable and a velocity (in the sense of \(\frac{d \vec x}{dT}\) variable. These are set to the observer position and normalized view vector. We also precompute \(h\). Then in each step ve do (pseudocode):</p>
+
+				<pre>
+					x = x + v*stepsize
+					a = - 1.5 * sqr(h) * x / (x^6)
+					v = v + a*stepsize</pre>
+
+				<p>as simple as that. This is all you need for raytracing photon orbits in Schwarzschild spacetime.</p>
+				<p>This is much better than the previous method, that worked with polar coordinates in the orbital plane. This is very efficient computationally.</p>
+			</div>
+			
+			<div class="row">
+				<h2>Raytracing in numpy</h2>
+				<p>If you take a look at the source tree you'll find is not much of a tree. It's just a python script. The horror! Why would anyone write a raytracer in python? Python loops are notoriously <strong>heavy</strong>, which is mostly (but not completely) a dealbreaker. The point here is that we're doing the computations in numpy, and calculating everything in parallel. This is why this program won't show you progressively the parts of the image it has already rendered: it's raytracing them all at the same time.</p>
+				<p>One basically starts by creating an array of initial conditions. For example, a <code>(numPixel,3)</code> array with view 3-vector corresponding to every pixel of the image (numPixel is image width * image height). Then every computation one would do for a single ray, one does in <code>(numPixel, ...)</code>-shaped arrays. Every quantity is actually an array. Since operations on numpy arrays are very fast and everything is statically typed (hope I'm not saying anything stupid right now) this should be fast enough. Maybe not C, but fast-ish.</p>
+				<p>At the same time, we have the versatility and clarity of python.</p>
+
+				<p>This method is basically horrible for standard raytracing, where objects have diffuse, reflective, refractive components and illumination conditions are important. Selectively reflecting parts of an array of rays, for example, is a nightmare; taking track of booleans or loop indices requires numerous masks and loops cannot be broken out of. However, this is not our case: the only objects in our scene are exclusively emissive: the sky, the incandescent accretion disk, the pitch black event horizon, and the bright dust. These are unaffected by incoming light on the object, and light itself passes through them undisturbed, at most reduced in intensity. This leads us to our colour determination algorithm:</p>
+
+			</div>
+
+			<div class="row">
+				<h2>Colour blending</h2>
+				<p>It's easy: we just need to blend together all objects between us and the origin of the ray with their respective alpha values, stacking them with the farthest at the bottom. We initialize a colour buffer with alpha to transparent black, then on intersection with an object, we update the buffer by blending the colour from the object <em>below</em> our colour buffer. Also every step we do this for the dust (we use a \(r^{-2}\) density profile). We go on like this until iterations end. Note that the alpha channel then also functions as a z-buffer, as object stop contributing after the ray has intersected an opaque object (that thus set the buffer's alpha to 1.0).</p>
+				<p>This technique has the obvious drawback that you just cannot stop tracing a ray after you're done with it, as it's part of an array where other rays are still being traced. After colliding with the horizon, for example, rays continue wandering erratically from precision error after they hit the singularity - you can see what happens by explicitly disabling the horizon object. The alpha blending algorithm ensures they won't contribute anymore to the final image - but they will still weigh on the CPU.</p>
+			</div>
+
+
+			
+
+			<div class="clear"><br><br></div>
+		</div>
+
+
+
+
+	</body>
+</html>
