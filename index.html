@@ -66,7 +66,7 @@
 
 
 			<div class="row">
-				<p>It's now clear I'm on a Black Hole binge (I can stop when I want, by the way). They're endlessly fascinating. My recent interest was in particular focused on simulating visualizations of the Schwarzschild geometry. I was preoccupied by the problem of generating a decent accurate representation of how the curvature of such a spacetime affects the appearance of the sky (since photons from distance sources ride along geodesics bent by the Black Hole), for the purpose of creating an interactive simulation. <a href="../schwarzschild/">This</a> was the result (it runs in your browser). The trick was of course to precalculate as much as possible about the deflection of light rays. It worked ok-ish, but the simulation is of course very lacking in features, since it's not actually doing any raytracing (for the laymen: reconstructing the whereabouts of light rays incoming in the camera back in time) on its own.</p>
+				<p>It's now clear I'm on a Black Hole binge (I can stop when I want, by the way). They're endlessly fascinating. My recent interest was in particular focused on simulating visualizations of the Schwarzschild geometry. I was preoccupied by the problem of generating a decent accurate representation of how the curvature of such a spacetime affects the appearance of the sky (since photons from distance sources ride along geodesics bent by the Black Hole), for the purpose of creating an interactive simulation. <a href="http://spiro.fisica.unipd.it/~antonell/schwarzschild/">This</a> was the result (it runs in your browser). The trick was of course to precalculate as much as possible about the deflection of light rays. It worked ok-ish, but the simulation is of course very lacking in features, since it's not actually doing any raytracing (for the laymen: reconstructing the whereabouts of light rays incoming in the camera back in time) on its own.</p>
 
 				<p>This project, instead, aims to shatter these shortcoming by ditching efficiency/interactivity in the most naive way: it's a <strong>full CPU raytracer</strong>, taking all the time it needs to render pictures. The image above was rendered with this program - it took ~15 minutes on my laptop.</p>
 
@@ -79,7 +79,7 @@
 
 			<div class="row">
 				<h2>The shadow</h2>
-				<p>If you have already tried my <a href="../schwarzschild/">live applet</a>, you should be familiar with this view:</p>
+				<p>If you have already tried my <a href="http://spiro.fisica.unipd.it/~antonell/schwarzschild/">live applet</a>, you should be familiar with this view:</p>
 				<img src="pics/00.png" class="center-block img-responsive img-mrg">
 
 				<p>You should excuse the aliasing (at this resolution, the sky is basically just noise). However, you shouldn't have problems making out the salient feature of the image, namely the black disk and the weird distortion ring.</p>
@@ -102,7 +102,7 @@
 
 			<div class="row">
 				<h2>The effect on the celestial sphere</h2>
-				<p>I'm not gonna focus a lot on this, because this was the main goal of the <a href="../schwarzschild">live applet</a>, and you can get a much better idea of the distortions induced on the sky through that (which also includes an UV grid option so the distortion is clearer).</p>
+				<p>I'm not gonna focus a lot on this, because this was the main goal of the <a href="http://spiro.fisica.unipd.it/~antonell/schwarzschild">live applet</a>, and you can get a much better idea of the distortions induced on the sky through that (which also includes an UV grid option so the distortion is clearer).</p>
 				<p>Just a couple of things about the Einstein ring. The Einstein ring is distinguishable as an optical feature because it is the image of a single point, namely that on the sky directly opposite the observer. The ring forms at the view angle where rays from the observer are bent parallel. Outside of it, rays are not bent enough and remain divergent; inside, they are bent too much and converge and in fact can go backwards, or even wind around multiple times, as we've seen.</p>
 				<p>But then, think about this: if we get close enough to the black disk, light rays should be able to wind around once and then walk away parallel. There we should see a secondary Einstein ring. In fact, rings of any order (any number of windings.) Also, there should be "odd" rings inbetween where light rays are bent parallel, but directed towards the viewer. This infinite series of rings is there, but it's absolutely invisible in this image (in fact, in most of them) as they are very close to the disk edge.</p>
 
@@ -270,7 +270,7 @@
 
 				<p>Just kidding. Of course there's a trick.</p>
 
-				<p>If you remember <a href="../schwarzschild/">last time</a>, I derived the following equation for the orbit of a massless particle in its orbital plane in a Schwarzschild geometry (\(u=1/r\)):
+				<p>If you remember <a href="http://spiro.fisica.unipd.it/~antonell/schwarzschild/">last time</a>, I derived the following equation for the orbit of a massless particle in its orbital plane in a Schwarzschild geometry (\(u=1/r\)):
 
 				\[ u''(\phi) + u = \frac{3}{2} u^2 \]
 
