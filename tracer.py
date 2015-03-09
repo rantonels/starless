@@ -8,19 +8,6 @@ import datetime
 
 import blackbody as bb
 
-INV255 = 1./255.
-
-#defining texture lookup
-def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
-    uvarr = np.clip(uvarrin,0.0,0.999)
-
-    uvarr[:,0] *= float(texarr.shape[1])
-    uvarr[:,1] *= float(texarr.shape[0])
-    
-    uvarr = uvarr.astype(int)
-
-    return INV255*texarr[  uvarr[:,1], uvarr[:,0] ]
-
 
 #rough option parsing
 LOFI = False
@@ -148,9 +135,12 @@ DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
 
 
+
 #ensuring existence of tests directory
 if not os.path.exists("tests"):
     os.makedirs("tests")
+
+
 
 print "Loading textures..."
 if SKY_TEXTURE == 'texture':
@@ -164,6 +154,21 @@ if DISK_TEXTURE == 'texture':
     texarr_disk = spm.imread('textures/adisk.jpg')
 if DISK_TEXTURE == 'test':
     texarr_disk = spm.imread('textures/adisktest.jpg')
+
+
+
+INV255 = 1./255.
+#defining texture lookup
+def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
+    uvarr = np.clip(uvarrin,0.0,0.999)
+
+    uvarr[:,0] *= float(texarr.shape[1])
+    uvarr[:,1] *= float(texarr.shape[0])
+    
+    uvarr = uvarr.astype(int)
+
+    return INV255*texarr[  uvarr[:,1], uvarr[:,0] ]
+
 
 
 print "Computing rotation matrix..."
@@ -313,9 +318,6 @@ for it in range(NITER):
         sys.stdout.flush()
         print "\r",
 
-    #if it%100 == 1:
-    #    saveToImg(object_colour,"tests/obcolseries/%d.png"%it)
-
     # STEPPING
     oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
 
@@ -394,11 +396,12 @@ for it in range(NITER):
                                 
 
                     gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
-
+                    
+                    # opz = 1 + z
                     opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
-                
                     opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
 
+                    # (1+z)-redshifted Planck spectrum is still Planckian at temperature T
                     temperature /= (opz_doppler*opz_gravitational).clip(0.1)
 
                 intensity = bb.intensity(temperature)
