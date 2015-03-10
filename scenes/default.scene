@@ -19,7 +19,7 @@ Stepsize=0.02
 # apply when rendering without the -d option
 [hifi]
 
-Resolution=1920,1080
+Resolution=1024,786
 Iterations=1000
 Stepsize=0.02
 
@@ -45,11 +45,18 @@ Upvector=.3,1.,0.
 
 
 #Disc inner/outer radii
-Diskinner=1.5
-Diskouter=4.
+Diskinner=1.6
+Diskouter=6.
 
 
 [materials]
+
+#whether to convert sRGB -> linear RGB when loading textures
+sRGBIn=1
+
+#whether to convert back RGB -> sRGB after postprocessing, before saving
+sRGBOut=1
+
 
 #Whether to draw a grid on the horizon (0/1)
 Horizongrid=0
@@ -83,8 +90,7 @@ Skydiskratio=0.3
 #Toggle dust (0/1)
 Fogdo=1
 #Dust intensity multiplier
-Fogmult=0.028991186547107816
-
+Fogmult=0.1
 
 #Postprocessing options
 

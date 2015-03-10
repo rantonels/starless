@@ -8,14 +8,23 @@ import datetime
 
 import blackbody as bb
 
+import gc
+
 
 #rough option parsing
 LOFI = False
+
+DISABLE_DISPLAY = 0
+
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
     if arg == '-d':
         LOFI = True
         continue
+    if arg == '--no-display':
+        DISABLE_DISPLAY = 1
+        continue
+
     if arg[0] == '-':
         print "unrecognized option: %s"%arg
         exit()
@@ -176,7 +185,7 @@ if SKY_TEXTURE == 'texture':
     if SRGBIN:
         # must do this before resizing to get correct results
         srgbtorgb(texarr_sky)
-    if not LOFI:
+    if False:#not LOFI:
         #   maybe doing this manually and then loading is better.
         print "(zooming sky texture...)"
         texarr_sky = spm.imresize(texarr_sky,2.0,interp='bicubic')
@@ -235,6 +244,9 @@ pixelindices = np.arange(0,RESOLUTION[0]*RESOLUTION[1],1)
 
 #total number of pixels
 numPixels = pixelindices.shape[0]
+
+print "Generated %d pixel flattened array."%numPixels
+sys.stdout.flush()
 
 #useful constant arrays
 ones = np.ones((numPixels))
@@ -303,249 +315,302 @@ def saveToImgBool(arr,fname):
 
 
 
-print "Generated %d pixel flattened array."%numPixels
-sys.stdout.flush()
-
-#arrays of integer pixel coordinates
-x = pixelindices % RESOLUTION[0]
-y = pixelindices / RESOLUTION[0]
-
-print "Generating view vectors..."
-sys.stdout.flush()
 
 
-#the view vector in 3D space
-view = np.zeros((numPixels,3))
 
-view[:,0] = x.astype(float)/RESOLUTION[0] - .5
-view[:,1] = ((-y.astype(float)/RESOLUTION[1] + .5)*RESOLUTION[1])/RESOLUTION[0] #(inverting y coordinate)
-view[:,2] = 1.0
+#PARTITIONING
 
-view[:,0]*=TANFOV
-view[:,1]*=TANFOV
+CHUNKSIZE = 76800
+np.random.shuffle(pixelindices)
+chunks = np.array_split(pixelindices,numPixels/CHUNKSIZE + 1)
 
-#rotating through the view matrix
+NCHUNKS = len(chunks)
 
-view = np.einsum('jk,ik->ij',viewMatrix,view)
+print "Split into %d chunks of %d pixels each"%(NCHUNKS,chunks[0].shape[0])
 
-#original position
-point = np.outer(ones, CAMERA_POS)
+total_colour_buffer_preproc = np.zeros((numPixels,3))
 
-normview = normalize(view)
+if not DISABLE_DISPLAY:
+    print "Opening display..."
 
-velocity = np.copy(normview)
+    plt.ion()
+    plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
+    plt.draw()
 
-#ignore all references to donemask. It's deprecated.
-donemask = np.zeros((numPixels),dtype=np.bool)
-
-# initializing the colour buffer
-object_colour = np.zeros((numPixels,3))
-object_alpha = np.zeros(numPixels)
-
-#squared angular momentum per unit mass (in the "Newtonian fantasy")
-#h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
-h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
-
-print "Starting pathtracing iterations..."
-sys.stdout.flush()
+itcounter = 0
+chnkcounter = 0
 
 start_time = time.time()
 
-for it in range(NITER):
-    if it%15 == 1:
-        elapsed_time = time.time() - start_time
-        progress = float(it)/NITER
+def showprogress(messtring):
+    global itcounter,start_time
+    elapsed_time = time.time() - start_time
+    progress = float(itcounter)/(NCHUNKS*NITER)
 
+    try:
         ETA = elapsed_time / progress * (1-progress)
+    except ZeroDivisionError:
+        ETA = 0
 
-        print "%d%%, %s remaining"%(int(100*progress), str(datetime.timedelta(seconds=ETA))),
-        sys.stdout.flush()
-        print "\r",
-
-    # STEPPING
-    oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
-
-    #leapfrog method here feels good
-    point += velocity * STEP
-
-    if DISTORT:
-        #this is the magical - 3/2 r^(-5) potential...
-        accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
-        velocity += accel * STEP
+    print "%d%%, %s remaining. Chunk %d/%d, %s"%(
+            int(100*progress), 
+            str(datetime.timedelta(seconds=ETA)).split('.',2)[0],
+            chnkcounter,
+            NCHUNKS,
+            messtring.ljust(30)
+                ),
+    sys.stdout.flush()
+    print "\r",
 
 
-    #useful precalcs
-    pointsqr = sqrnorm(point)
-    phi = np.arctan2(point[:,0],point[:,2])
-    normvel = normalize(velocity)
+
+for chunk in chunks:
+    chnkcounter+=1
+
+    #number of chunk pixels
+    numChunk = chunk.shape[0]
+
+    #useful constant arrays 
+    ones = np.ones((numChunk))
+    ones3 = np.ones((numChunk,3))
 
 
-    # FOG
+    #arrays of integer pixel coordinates
+    x = chunk % RESOLUTION[0]
+    y = chunk / RESOLUTION[0]
 
-    if FOGDO and (it%FOGSKIP == 0):
-        fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
-        fogcol = ones3
+    showprogress("Generating view vectors...")
 
-        object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
-        object_alpha = blendalpha(fogint, object_alpha)
+    #the view vector in 3D space
+    view = np.zeros((numChunk,3))
+
+    view[:,0] = x.astype(float)/RESOLUTION[0] - .5
+    view[:,1] = ((-y.astype(float)/RESOLUTION[1] + .5)*RESOLUTION[1])/RESOLUTION[0] #(inverting y coordinate)
+    view[:,2] = 1.0
+
+    view[:,0]*=TANFOV
+    view[:,1]*=TANFOV
+
+    #rotating through the view matrix
+
+    view = np.einsum('jk,ik->ij',viewMatrix,view)
+
+    #original position
+    point = np.outer(ones, CAMERA_POS)
+
+    normview = normalize(view)
+
+    velocity = np.copy(normview)
+
+    #ignore all references to donemask. It's deprecated.
+    donemask = np.zeros((numChunk),dtype=np.bool)
+
+    # initializing the colour buffer
+    object_colour = np.zeros((numChunk,3))
+    object_alpha = np.zeros(numChunk)
+
+    #squared angular momentum per unit mass (in the "Newtonian fantasy")
+    #h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
+    h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
+
+    for it in range(NITER):
+        itcounter+=1
+
+        if it%15 == 1:
+            showprogress("Raytracing...")
+
+        # STEPPING
+        oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
+
+        #leapfrog method here feels good
+        point += velocity * STEP
+
+        if DISTORT:
+            #this is the magical - 3/2 r^(-5) potential...
+            accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
+            velocity += accel * STEP
 
 
-    # CHECK COLLISIONS
-    # accretion disk
+        #useful precalcs
+        pointsqr = sqrnorm(point)
+        phi = np.arctan2(point[:,0],point[:,2])
+        normvel = normalize(velocity)
 
-    if DISK_TEXTURE != "none":
 
-        mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
-        mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
+        # FOG
 
-        diskmask = np.logical_and(mask_crossing,mask_distance)
+        if FOGDO and (it%FOGSKIP == 0):
+            fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
+            fogcol = ones3
 
-        if (diskmask.any()):
+            object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
+            object_alpha = blendalpha(fogint, object_alpha)
 
-            if DISK_TEXTURE == "grid":
+
+        # CHECK COLLISIONS
+        # accretion disk
+
+        if DISK_TEXTURE != "none":
+
+            mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
+            mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
+
+            diskmask = np.logical_and(mask_crossing,mask_distance)
+
+            if (diskmask.any()):
+
+                if DISK_TEXTURE == "grid":
+                    theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
+                    diskcolor =     np.outer(
+                            np.mod(phi,0.52359) < 0.261799,
+                                        np.array([1.,1.,0.])
+                                            ) +  \
+                                    np.outer(ones,np.array([0.,0.,1.]) )
+                    diskalpha = diskmask
+
+                elif DISK_TEXTURE == "solid":
+                    diskcolor = np.array([1.,1.,.98])
+                    diskalpha = diskmask
+
+                elif DISK_TEXTURE == "texture":
+                    uv = np.zeros((numChunk,2))
+
+                    uv[:,0] = (phi+np.pi)/(2*np.pi)
+                    uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
+
+                    diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
+                    #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
+                    #diskmask = np.logical_and(diskmask, alphamask )
+                    diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
+
+                #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
+                elif DISK_TEXTURE == "blackbody":
+
+                    temperature = np.exp(bb.disktemp(pointsqr,9.2103))
+
+                    if REDSHIFT:
+                        R = np.sqrt(pointsqr)
+
+                        disc_velocity = 0.70710678 * \
+                                    np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
+                                    np.cross(UPFIELD, normalize(point))
+
+
+                        gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
+
+                        # opz = 1 + z
+                        opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
+                        opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
+
+                        # (1+z)-redshifted Planck spectrum is still Planckian at temperature T
+                        temperature /= (opz_doppler*opz_gravitational).clip(0.1)
+
+                    intensity = bb.intensity(temperature)
+                    diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+
+                    iscotaper = np.clip((pointsqr-DISKINNERSQR)*0.5,0.,1.)
+
+                    diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
+
+
+                object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
+                object_alpha = blendalpha(diskalpha, object_alpha)
+
+                donemask = np.logical_or(donemask ,  diskmask)
+
+
+        # event horizon
+        mask_horizon = np.logical_and((sqrnorm(point) < 1),(sqrnorm(oldpoint) > 1) )
+
+        if mask_horizon.any() :
+
+            if HORIZON_GRID:
                 theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
-                diskcolor =     np.outer(
-                        np.mod(phi,0.52359) < 0.261799,
-                                    np.array([1.,1.,0.])
-                                        ) +  \
-                                np.outer(ones,np.array([0.,0.,1.]) )
-                diskalpha = diskmask
+                horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
+            else:
+                horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))
 
-            elif DISK_TEXTURE == "solid":
-                diskcolor = np.array([1.,1.,.98])
-                diskalpha = diskmask
+            #object_colour += np.outer(np.logical_not(donemask)*mask_horizon,np.array([1.,1.,1.])) * horizoncolour
+            horizonalpha = mask_horizon
 
-            elif DISK_TEXTURE == "texture":
-                uv = np.zeros((numPixels,2))
-
-                uv[:,0] = (phi+np.pi)/(2*np.pi)
-                uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
-
-                diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
-                #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
-                #diskmask = np.logical_and(diskmask, alphamask )
-                diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
-
-            #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
-            elif DISK_TEXTURE == "blackbody":
-
-                temperature = np.exp(bb.disktemp(pointsqr,9.2103))
-
-                if REDSHIFT:
-                    R = np.sqrt(pointsqr)
-
-                    disc_velocity = 0.70710678 * \
-                                np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
-                                np.cross(UPFIELD, normalize(point))
+            object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
+            object_alpha = blendalpha(horizonalpha, object_alpha)
 
 
-                    gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
-
-                    # opz = 1 + z
-                    opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
-                    opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
-
-                    # (1+z)-redshifted Planck spectrum is still Planckian at temperature T
-                    temperature /= (opz_doppler*opz_gravitational).clip(0.1)
-
-                intensity = bb.intensity(temperature)
-                diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
-
-                iscotaper = np.clip((pointsqr-DISKINNERSQR)*0.5,0.,1.)
-
-                diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
+            donemask = np.logical_or(donemask,mask_horizon)
 
 
-            object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
-            object_alpha = blendalpha(diskalpha, object_alpha)
 
-            donemask = np.logical_or(donemask ,  diskmask)
+    showprogress("generating sky layer...")
+
+    vphi = np.arctan2(velocity[:,0],velocity[:,2])
+    vtheta = np.arctan2(velocity[:,1],norm(velocity[:,[0,2]]) )
+
+    vuv = np.zeros((numChunk,2))
+
+    vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
+    vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
+
+    if SKY_TEXTURE == 'texture':
+        col_sky = lookup(texarr_sky,vuv)[:,0:3]
+
+    showprogress("generating debug layers...")
+
+    #debug color: direction of view vector
+    dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
+    #debug color: direction of final ray
+    dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
+    #debug color: grid
+    dbg_grid = np.abs(normalize(velocity)) < 0.1
+    #debug color: donemask
+    dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
 
 
-    # event horizon
-    mask_horizon = np.logical_and((sqrnorm(point) < 1),(sqrnorm(oldpoint) > 1) )
-
-    if mask_horizon.any() :
-
-        if HORIZON_GRID:
-            theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
-            horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
-        else:
-            horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))
-
-        #object_colour += np.outer(np.logical_not(donemask)*mask_horizon,np.array([1.,1.,1.])) * horizoncolour
-        horizonalpha = mask_horizon
-
-        object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
-        object_alpha = blendalpha(horizonalpha, object_alpha)
+    if SKY_TEXTURE == 'texture':
+        col_bg = col_sky
+    elif SKY_TEXTURE == 'none':
+        col_bg = np.zeros((numChunk,3))
+    elif SKY_TEXTURE == 'final':
+        col_bg = dbg_finvec
+    else:
+        col_bg = np.zeros((numChunk,3))
 
 
-        donemask = np.logical_or(donemask,mask_horizon)
+    showprogress("blending layers...")
+
+    #deprecated blend function
+    def blend(a1,a2,mask):
+        mm = np.outer(mask,np.array([1.,1.,1.]))
+        return np.logical_not(mm)*a1 + mm*a2
+
+    #col_bg_and_obj = blend(col_bg,object_colour,donemask)
+
+
+    col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
+
+    showprogress("beaming back to mothership.")
+    # copy back in the buffer
+    total_colour_buffer_preproc[chunk] = col_bg_and_obj
+
+    #refresh display
+    if not DISABLE_DISPLAY:
+        plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
+        plt.draw()
+
+    showprogress("garbage collection...")
+    gc.collect()
+
+
+print "Done tracing."
 
 print "Total raytracing time: %s"%(str(datetime.timedelta(seconds= (time.time()-start_time))) )
-
-print "Computing final colour..."
-sys.stdout.flush()
-
-print "- generating sky layer..."
-sys.stdout.flush()
-
-vphi = np.arctan2(velocity[:,0],velocity[:,2])
-vtheta = np.arctan2(velocity[:,1],norm(velocity[:,[0,2]]) )
-
-vuv = np.zeros((numPixels,2))
-
-vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
-vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
-
-if SKY_TEXTURE == 'texture':
-    col_sky = lookup(texarr_sky,vuv)[:,0:3]
-
-print "- generating debug layers..."
-sys.stdout.flush()
-
-#debug color: direction of view vector
-dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
-#debug color: direction of final ray
-dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
-#debug color: grid
-dbg_grid = np.abs(normalize(velocity)) < 0.1
-#debug color: donemask
-dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
-
-
-if SKY_TEXTURE == 'texture':
-    col_bg = col_sky
-elif SKY_TEXTURE == 'none':
-    col_bg = np.zeros((numPixels,3))
-elif SKY_TEXTURE == 'final':
-    col_bg = dbg_finvec
-else:
-    col_bg = np.zeros((numPixels,3))
-
-print "MAX_OBJ = %f"%np.amax(object_colour)
-
-print "- blending layers..."
-
-#deprecated blend function
-def blend(a1,a2,mask):
-    mm = np.outer(mask,np.array([1.,1.,1.]))
-    return np.logical_not(mm)*a1 + mm*a2
-
-#col_bg_and_obj = blend(col_bg,object_colour,donemask)
-
-
-col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
-
-print "MAX = %f"%np.amax(col_bg_and_obj)
-
 
 print "Postprocessing..."
 
 #bloom
 
 if BLURDO:
-    hipass = np.outer(sqrnorm(col_bg_and_obj) > BLOOMCUT, np.array([1.,1.,1.])) * col_bg_and_obj
+    hipass = np.outer(sqrnorm(total_colour_buffer_preproc) > BLOOMCUT, np.array([1.,1.,1.])) * total_colour_buffer_preproc
     blurd = np.copy(hipass)
 
     blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
@@ -558,12 +623,11 @@ if BLURDO:
 
 
     #blending bloom
-    colour = col_bg_and_obj + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
+    colour = total_colour_buffer_preproc + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
 
 else:
-    colour = col_bg_and_obj
+    colour = total_colour_buffer_preproc
 
-print "MAX = %f"%np.amax(colour)
 
 
 
@@ -571,12 +635,10 @@ print "MAX = %f"%np.amax(colour)
 if NORMALIZE > 0:
     print "- normalizing..."
     colour *= 1 / (NORMALIZE * np.amax(colour.flatten()) )
-    print "MAX = %f"%np.amax(colour)
 
 #gain
 print "- gain..."
-col_bg_and_obj *= GAIN
-print "MAX = %f"%np.amax(col_bg_and_obj)
+total_colour_buffer_preproc *= GAIN
 
 
 #final colour
@@ -587,11 +649,11 @@ print "Conversion to image and saving..."
 sys.stdout.flush()
 
 saveToImg(colour,"tests/out.png")
-saveToImgBool(donemask,"tests/objects.png")
-saveToImg(object_colour,"tests/objcolour.png")
-saveToImgBool(object_alpha,"tests/objalpha.png")
-saveToImg(col_bg_and_obj,"tests/preproc.png")
-if BLURDO:
-    saveToImg(hipass,"tests/hipass.png")
+#saveToImgBool(donemask,"tests/objects.png")
+#saveToImg(object_colour,"tests/objcolour.png")
+#saveToImgBool(object_alpha,"tests/objalpha.png")
+#saveToImg(total_colour_buffer_preproc,"tests/preproc.png")
+#if BLURDO:
+#    saveToImg(hipass,"tests/hipass.png")
 
 
