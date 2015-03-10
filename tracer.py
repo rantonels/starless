@@ -15,6 +15,7 @@ import gc
 LOFI = False
 
 DISABLE_DISPLAY = 0
+DISABLE_SHUFFLING = 1
 
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
@@ -23,6 +24,9 @@ for arg in sys.argv[1:]:
         continue
     if arg == '--no-display':
         DISABLE_DISPLAY = 1
+        continue
+    if arg == '--no-shuffle':
+        DISABLE_SHUFFLING = 1
         continue
 
     if arg[0] == '-':
@@ -321,7 +325,8 @@ def saveToImgBool(arr,fname):
 #PARTITIONING
 
 CHUNKSIZE = 76800
-np.random.shuffle(pixelindices)
+if not DISABLE_SHUFFLING:
+    np.random.shuffle(pixelindices)
 chunks = np.array_split(pixelindices,numPixels/CHUNKSIZE + 1)
 
 NCHUNKS = len(chunks)

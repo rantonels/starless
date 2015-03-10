@@ -30,7 +30,7 @@ Stepsize=0.02
 
 #Position of the camera in units of r_S
 #x,z are the disc's plane
-Cameraposition=0.,1.,-10.
+Cameraposition=0.,1.,-13.
 
 #Tangent of field of view
 Fieldofview=1.0
@@ -41,12 +41,12 @@ Lookat=0.,0.,0.
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
-Upvector=.3,1.,0.
+Upvector=.4,1.,0.
 
 
 #Disc inner/outer radii
 Diskinner=1.6
-Diskouter=6.
+Diskouter=8.
 
 
 [materials]
@@ -85,12 +85,12 @@ Diskalphamultiplier=2000.
 Skytexture=texture
 
 #Ratio of sky brightness / disk brightness
-Skydiskratio=0.3
+Skydiskratio=0.15
 
 #Toggle dust (0/1)
 Fogdo=1
 #Dust intensity multiplier
-Fogmult=0.1
+Fogmult=0.04
 
 #Postprocessing options
 
