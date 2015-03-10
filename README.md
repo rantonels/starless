@@ -12,7 +12,7 @@ It is still in development and will be presented on my site along with [my real 
 - Sky distortion
 - Dust
 - Bloom postprocessing
-- Completely parallel
+- Completely parallel - renders chunks of the image using numpy arrays arithmetic
 - Easy debugging by saving masks and intermediate results as images
 
 ## Dependencies
@@ -56,6 +56,18 @@ and wait. The rendered image will be in the `tests` folder under the name `out.p
 
 To run the full render, just omit the `-d` option. The results will still be saved in `tests`.
 
+## Command line usage
+
+`tracer.py` accepts the following command line options:
+
+* `-d`: run test (render with [lofi] settings)
+* `--no-display`: do not open matplotlib preview window.
+* `--no-shuffle`: do not shuffle pixels before chunking. This, in practice, means that instead of being rendered at random, the image is raytraced progressively starting from the top. The end result is identical.
+
+The (single) scene filename can be placed anywhere, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
+
 ## Writing .scene files
 
 Please refer to the `scenes/default.scene` file for a commented overview of all options.
+
+Many options have default values and can be omitted, but I make no guarantees on the existence and values of such defaults. To be sure, include all options from `scenes/default.scene`.
