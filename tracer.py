@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -189,7 +191,7 @@ if SKY_TEXTURE == 'texture':
     if SRGBIN:
         # must do this before resizing to get correct results
         srgbtorgb(texarr_sky)
-    if False:#not LOFI:
+    if not LOFI:
         #   maybe doing this manually and then loading is better.
         print "(zooming sky texture...)"
         texarr_sky = spm.imresize(texarr_sky,2.0,interp='bicubic')
