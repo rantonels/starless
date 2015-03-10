@@ -9,7 +9,7 @@
 Resolution=160,120
 
 #number of raytracing steps
-Iterations=1000
+Iterations=2000
 
 #size of integration step
 Stepsize=0.02
@@ -19,8 +19,8 @@ Stepsize=0.02
 # apply when rendering without the -d option
 [hifi]
 
-Resolution=1024,786
-Iterations=1000
+Resolution=1920,1080
+Iterations=2000
 Stepsize=0.02
 
 
@@ -30,10 +30,10 @@ Stepsize=0.02
 
 #Position of the camera in units of r_S
 #x,z are the disc's plane
-Cameraposition=0.,1.,-13.
+Cameraposition=0.,1.,-20.
 
 #Tangent of field of view
-Fieldofview=1.0
+Fieldofview=0.7
 
 #Self explanatory
 #fixes the view vector
@@ -41,12 +41,12 @@ Lookat=0.,0.,0.
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
-Upvector=.4,1.,0.
+Upvector=.2,1.,0.
 
 
 #Disc inner/outer radii
-Diskinner=1.6
-Diskouter=8.
+Diskinner=3.
+Diskouter=10.
 
 
 [materials]
@@ -85,7 +85,7 @@ Diskalphamultiplier=2000.
 Skytexture=texture
 
 #Ratio of sky brightness / disk brightness
-Skydiskratio=0.15
+Skydiskratio=0.07
 
 #Toggle dust (0/1)
 Fogdo=1

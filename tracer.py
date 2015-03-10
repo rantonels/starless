@@ -563,14 +563,13 @@ for chunk in chunks:
 
     showprogress("generating debug layers...")
 
-    #debug color: direction of view vector
-    dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
-    #debug color: direction of final ray
-    dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
-    #debug color: grid
-    dbg_grid = np.abs(normalize(velocity)) < 0.1
-    #debug color: donemask
-    dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
+    ##debug color: direction of view vector
+    #dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
+    ##debug color: direction of final ray
+    ##debug color: grid
+    #dbg_grid = np.abs(normalize(velocity)) < 0.1
+    ##debug color: donemask
+    #dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
 
 
     if SKY_TEXTURE == 'texture':
@@ -578,20 +577,13 @@ for chunk in chunks:
     elif SKY_TEXTURE == 'none':
         col_bg = np.zeros((numChunk,3))
     elif SKY_TEXTURE == 'final':
+        dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
         col_bg = dbg_finvec
     else:
         col_bg = np.zeros((numChunk,3))
 
 
     showprogress("blending layers...")
-
-    #deprecated blend function
-    def blend(a1,a2,mask):
-        mm = np.outer(mask,np.array([1.,1.,1.]))
-        return np.logical_not(mm)*a1 + mm*a2
-
-    #col_bg_and_obj = blend(col_bg,object_colour,donemask)
-
 
     col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
 
@@ -611,6 +603,7 @@ for chunk in chunks:
 print "Done tracing."
 
 print "Total raytracing time: %s"%(str(datetime.timedelta(seconds= (time.time()-start_time))) )
+
 
 print "Postprocessing..."
 
@@ -656,11 +649,8 @@ print "Conversion to image and saving..."
 sys.stdout.flush()
 
 saveToImg(colour,"tests/out.png")
-#saveToImgBool(donemask,"tests/objects.png")
-#saveToImg(object_colour,"tests/objcolour.png")
-#saveToImgBool(object_alpha,"tests/objalpha.png")
-#saveToImg(total_colour_buffer_preproc,"tests/preproc.png")
-#if BLURDO:
-#    saveToImg(hipass,"tests/hipass.png")
+saveToImg(total_colour_buffer_preproc,"test/preproc.png")
+if BLURDO:
+    saveToImg(hipass,"tests/hipass.png")
 
 
