@@ -27,7 +27,8 @@ Horizongrid=0
 Disktexture=blackbody
 Skytexture=texture
 Skydiskratio=0.05
-Fogmult=0.3
+Fogdo=1
+Fogmult=0.03
 
 Diskmultiplier=100
 Diskalphamultiplier=4000
