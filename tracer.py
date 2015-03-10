@@ -17,7 +17,7 @@ import gc
 LOFI = False
 
 DISABLE_DISPLAY = 0
-DISABLE_SHUFFLING = 1
+DISABLE_SHUFFLING = 0
 
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
@@ -482,7 +482,7 @@ for chunk in chunks:
                 elif DISK_TEXTURE == "texture":
                     uv = np.zeros((numChunk,2))
 
-                    uv[:,0] = (phi+np.pi)/(2*np.pi)
+                    uv[:,0] = ((phi+2*np.pi)%(2*np.pi))/(2*np.pi)
                     uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
 
                     diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
