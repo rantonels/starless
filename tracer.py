@@ -19,9 +19,9 @@ for arg in sys.argv[1:]:
     if arg[0] == '-':
         print "unrecognized option: %s"%arg
         exit()
-    
+
     SCENE_FNAME = arg
-    
+
 
 
 if not os.path.isfile(SCENE_FNAME):
@@ -36,7 +36,7 @@ defaults = {
             "Distort":"1",
             "Fogdo":"1",
             "Blurdo":"1",
-            "Fogmult":"0.1",       
+            "Fogmult":"0.1",
             "Diskinner":"1.5",
             "Diskouter":"4",
             "Resolution":"160,120",
@@ -52,7 +52,9 @@ defaults = {
             "Fieldofview":1.5,
             "Lookat":"0.,0.,0.",
             "Horizongrid":"1",
-            "Redshift":"1"
+            "Redshift":"1",
+            "sRGBOut":"1",
+            "sRGBIn":"1"
             }
 
 cfp = ConfigParser.ConfigParser(defaults)
@@ -107,7 +109,7 @@ try:
 
     BLOOMCUT = float(cfp.get('materials','Bloomcut'))
 
-  
+
 
 except KeyError:
     print "error reading scene file: insufficient data in geometry section"
@@ -122,6 +124,10 @@ try:
     FOGDO = int(cfp.get('materials','Fogdo'))
     BLURDO = int(cfp.get('materials','Blurdo'))
     FOGMULT = float(cfp.get('materials','Fogmult'))
+
+    #perform linear rgb->srgb conversion
+    SRGBOUT = int(cfp.get('materials','sRGBOut'))
+    SRGBIN = int(cfp.get('materials','sRGBIn'))
 except KeyError:
     print "error reading scene file: insufficient data in materials section"
     print "using defaults."
@@ -141,33 +147,66 @@ if not os.path.exists("tests"):
     os.makedirs("tests")
 
 
+# these need to be here
+# convert from linear rgb to srgb
+def rgbtosrgb(arr):
+    #see https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
+    mask = arr > 0.0031308
+    arr[mask] **= 1/2.4
+    arr[mask] *= 1.055
+    arr[mask] -= 0.055
+    arr[-mask] *= 12.92
+
+
+# convert from srgb to linear rgb
+def srgbtorgb(arr):
+    mask = arr > 0.04045
+    arr[mask] += 0.055
+    arr[mask] /= 1.055
+    arr[mask] **= 2.4
+    arr[-mask] /= 12.92
+
 
 print "Loading textures..."
 if SKY_TEXTURE == 'texture':
     texarr_sky = spm.imread('textures/bgedit.png')
+    # must convert to float here so we can work in linear colour
+    texarr_sky = texarr_sky.astype(float)
+    texarr_sky /= 255.0
+    if SRGBIN:
+        # must do this before resizing to get correct results
+        srgbtorgb(texarr_sky)
     if not LOFI:
         #   maybe doing this manually and then loading is better.
         print "(zooming sky texture...)"
         texarr_sky = spm.imresize(texarr_sky,2.0,interp='bicubic')
+        # imresize converts back to uint8 for whatever reason
+        texarr_sky = texarr_sky.astype(float)
+        texarr_sky /= 255.0
 
+texarr_disk = None
 if DISK_TEXTURE == 'texture':
     texarr_disk = spm.imread('textures/adisk.jpg')
 if DISK_TEXTURE == 'test':
     texarr_disk = spm.imread('textures/adisktest.jpg')
+if texarr_disk is not None:
+    # must convert to float here so we can work in linear colour
+    texarr_disk = texarr_disk.astype(float)
+    texarr_disk /= 255.0
+    if SRGBIN:
+        srgbtorgb(texarr_disk)
 
 
-
-INV255 = 1./255.
 #defining texture lookup
 def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
     uvarr = np.clip(uvarrin,0.0,0.999)
 
     uvarr[:,0] *= float(texarr.shape[1])
     uvarr[:,1] *= float(texarr.shape[0])
-    
+
     uvarr = uvarr.astype(int)
 
-    return INV255*texarr[  uvarr[:,1], uvarr[:,0] ]
+    return texarr[  uvarr[:,1], uvarr[:,0] ]
 
 
 
@@ -247,10 +286,15 @@ def blendalpha(balpha,aalpha):
 
 def saveToImg(arr,fname):
     print " - saving %s..."%fname
-    #unflattening
-    imgout = arr.reshape((RESOLUTION[1],RESOLUTION[0],3))
+    #copy
+    imgout = np.array(arr)
     #clip
     imgout = np.clip(imgout,0.0,1.0)
+    #rgb->srgb
+    if SRGBOUT:
+        rgbtosrgb(imgout)
+    #unflattening
+    imgout = imgout.reshape((RESOLUTION[1],RESOLUTION[0],3))
     plt.imsave(fname,imgout)
 
 # this is not just for bool, also for floats (as grayscale)
@@ -323,7 +367,7 @@ for it in range(NITER):
 
     #leapfrog method here feels good
     point += velocity * STEP
-    
+
     if DISTORT:
         #this is the magical - 3/2 r^(-5) potential...
         accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
@@ -341,39 +385,39 @@ for it in range(NITER):
     if FOGDO and (it%FOGSKIP == 0):
         fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
         fogcol = ones3
-   
+
         object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
         object_alpha = blendalpha(fogint, object_alpha)
-        
+
 
     # CHECK COLLISIONS
     # accretion disk
-    
+
     if DISK_TEXTURE != "none":
 
         mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
         mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
-        
+
         diskmask = np.logical_and(mask_crossing,mask_distance)
 
         if (diskmask.any()):
 
             if DISK_TEXTURE == "grid":
                 theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
-                diskcolor =     np.outer( 
-                        np.mod(phi,0.52359) < 0.261799, 
-                                    np.array([1.,1.,0.]) 
+                diskcolor =     np.outer(
+                        np.mod(phi,0.52359) < 0.261799,
+                                    np.array([1.,1.,0.])
                                         ) +  \
                                 np.outer(ones,np.array([0.,0.,1.]) )
                 diskalpha = diskmask
 
             elif DISK_TEXTURE == "solid":
-                diskcolor = np.array([1.,1.,.98]) 
+                diskcolor = np.array([1.,1.,.98])
                 diskalpha = diskmask
 
             elif DISK_TEXTURE == "texture":
                 uv = np.zeros((numPixels,2))
-                
+
                 uv[:,0] = (phi+np.pi)/(2*np.pi)
                 uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
 
@@ -393,10 +437,10 @@ for it in range(NITER):
                     disc_velocity = 0.70710678 * \
                                 np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
                                 np.cross(UPFIELD, normalize(point))
-                                
+
 
                     gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
-                    
+
                     # opz = 1 + z
                     opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
                     opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
@@ -410,13 +454,13 @@ for it in range(NITER):
                 iscotaper = np.clip((pointsqr-DISKINNERSQR)*0.5,0.,1.)
 
                 diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
-             
 
-            object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha) 
+
+            object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
             object_alpha = blendalpha(diskalpha, object_alpha)
 
             donemask = np.logical_or(donemask ,  diskmask)
-        
+
 
     # event horizon
     mask_horizon = np.logical_and((sqrnorm(point) < 1),(sqrnorm(oldpoint) > 1) )
@@ -428,11 +472,11 @@ for it in range(NITER):
             horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
         else:
             horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))
-        
-        #object_colour += np.outer(np.logical_not(donemask)*mask_horizon,np.array([1.,1.,1.])) * horizoncolour
-        horizonalpha = mask_horizon  
 
-        object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha) 
+        #object_colour += np.outer(np.logical_not(donemask)*mask_horizon,np.array([1.,1.,1.])) * horizoncolour
+        horizonalpha = mask_horizon
+
+        object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
         object_alpha = blendalpha(horizonalpha, object_alpha)
 
 
@@ -455,15 +499,15 @@ vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
 vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
 
 if SKY_TEXTURE == 'texture':
-    col_sky = lookup(texarr_sky,vuv)[:,0:3] 
+    col_sky = lookup(texarr_sky,vuv)[:,0:3]
 
 print "- generating debug layers..."
 sys.stdout.flush()
 
 #debug color: direction of view vector
-dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0) 
+dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
 #debug color: direction of final ray
-dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0) 
+dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
 #debug color: grid
 dbg_grid = np.abs(normalize(velocity)) < 0.1
 #debug color: donemask

@@ -83,7 +83,7 @@ Skydiskratio=0.3
 #Toggle dust (0/1)
 Fogdo=1
 #Dust intensity multiplier
-Fogmult=0.2
+Fogmult=0.028991186547107816
 
 
 #Postprocessing options
