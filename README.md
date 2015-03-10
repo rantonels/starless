@@ -60,9 +60,14 @@ To run the full render, just omit the `-d` option. The results will still be sav
 
 `tracer.py` accepts the following command line options:
 
-* `-d`: run test (render with [lofi] settings)
-* `--no-display`: do not open matplotlib preview window.
-* `--no-shuffle`: do not shuffle pixels before chunking. This, in practice, means that instead of being rendered at random, the image is raytraced progressively starting from the top. The end result is identical.
+`-d`: run test (render with [lofi] settings)
+
+`--no-display`: do not open matplotlib preview window.
+
+`--no-shuffle`: do not shuffle pixels before chunking. This, in practice, means that instead of being rendered as a gradually densening cloud, the image is raytraced progressively starting from the top. The end result is identical, but with shuffling the preview window might give an idea of the render sooner. However, **disabling shuffling** provides a nice speed improvement for larger images, because:
+
+1) copying rendered data to the large final image buffer is slightly faster if it's contiguous
+2) per chunk, the raytracer performs full calculations relative to an object (disc, horizon, etc) if and only if at least one ray of it its the object. So, if chunks are actually contiguous, there is a certain probability that some of them will never hit certain objects and many computations will be skipped. Shuffled chunks almost surely hit every object in the scene.
 
 The (single) scene filename can be placed anywhere, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
