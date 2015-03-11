@@ -2,6 +2,7 @@
 tests
 out
 *.pyc
-textures/
 *.lprof
 *.prof
+texturework/
+textures/bgedit.png
