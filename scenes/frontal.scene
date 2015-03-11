@@ -1,14 +1,14 @@
 [lofi]
 
 Resolution=160,120
-Iterations=1000
-Stepsize=0.02
+Iterations=250
+Stepsize=0.08
 
 [hifi]
 
 Resolution=1920,1080
-Iterations=1000
-Stepsize=0.01
+Iterations=250
+Stepsize=0.08
 
 [geometry]
 
@@ -24,4 +24,7 @@ Disktexture=texture
 Skytexture=texture
 Skydiskratio=0.1
 Fogdo=1
-Fogmult=0.2
+Fogmult=0.04
+
+Diskinner=1.8
+Diskouter=6.

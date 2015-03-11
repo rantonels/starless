@@ -9,19 +9,19 @@
 Resolution=160,120
 
 #number of raytracing steps
-Iterations=2000
+Iterations=250
 
 #size of integration step
-Stepsize=0.02
+Stepsize=0.16
 
 
 # Full render options
 # apply when rendering without the -d option
 [hifi]
 
-Resolution=1920,1080
-Iterations=2000
-Stepsize=0.02
+Resolution=1024,786
+Iterations=250
+Stepsize=0.16
 
 
 # From now on, settings apply to both tests and full renders
@@ -45,7 +45,7 @@ Upvector=.2,1.,0.
 
 
 #Disc inner/outer radii
-Diskinner=3.
+Diskinner=2.6
 Diskouter=10.
 
 
@@ -90,7 +90,7 @@ Skydiskratio=0.07
 #Toggle dust (0/1)
 Fogdo=1
 #Dust intensity multiplier
-Fogmult=0.04
+Fogmult=0.02
 
 #Postprocessing options
 

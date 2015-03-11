@@ -13,6 +13,11 @@ import blackbody as bb
 import gc
 
 
+#enums
+METH_LEAPFROG = 0
+METH_RK4 = 1
+
+
 #rough option parsing
 LOFI = False
 
@@ -79,6 +84,8 @@ cfp.read(SCENE_FNAME)
 
 FOGSKIP = 1
 
+
+METHOD = METH_RK4
 
 #this is never catched by except. WHY?
 ex = ConfigParser.NoSectionError
@@ -292,6 +299,13 @@ def sixth(v):
     return tmp*tmp*tmp
 
 
+def RK4f(y,h2):
+    f = np.zeros(y.shape)
+    f[:,0:3] = y[:,3:6]
+    f[:,3:6] = - 1.5 * h2 * y[:,0:3] / sixth(y[:,0:3])[:,np.newaxis]
+    return f
+
+
 # this blends colours ca and cb by placing ca in front of cb
 def blendcolors(cb,balpha,ca,aalpha):
             #* np.outer(aalpha, np.array([1.,1.,1.])) + \
@@ -427,6 +441,8 @@ for chunk in chunks:
     #h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
     h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
 
+    pointsqr = np.copy(ones3)
+
     for it in range(NITER):
         itcounter+=1
 
@@ -436,13 +452,36 @@ for chunk in chunks:
         # STEPPING
         oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
 
-        #leapfrog method here feels good
-        point += velocity * STEP
+        if METHOD == METH_LEAPFROG:
+            #leapfrog method here feels good
+            point += velocity * STEP
 
-        if DISTORT:
-            #this is the magical - 3/2 r^(-5) potential...
-            accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
-            velocity += accel * STEP
+            if DISTORT:
+                #this is the magical - 3/2 r^(-5) potential...
+                accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
+                velocity += accel * STEP
+
+        elif METHOD == METH_RK4:
+            #simple step size control
+            rkstep = STEP
+
+            # standard Runge-Kutta
+            y = np.zeros((numChunk,6))
+            y[:,0:3] = point
+            y[:,3:6] = velocity
+            k1 = RK4f( y, h2)
+            k2 = RK4f( y + 0.5*rkstep*k1, h2)
+            k3 = RK4f( y + 0.5*rkstep*k2, h2)
+            k4 = RK4f( y +     rkstep*k3, h2)
+
+            increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
+
+            point += increment[:,0:3]
+            velocity += increment[:,3:6]
+
+
+
+
 
 
         #useful precalcs
@@ -472,10 +511,15 @@ for chunk in chunks:
             diskmask = np.logical_and(mask_crossing,mask_distance)
 
             if (diskmask.any()):
+                
+                #actual collision point by intersection
+                lambdaa = - point[:,1]/velocity[:,1]
+                colpoint = point + lambdaa[:,np.newaxis] * velocity
+                colpointsqr = sqrnorm(colpoint)
 
                 if DISK_TEXTURE == "grid":
-                    phi = np.arctan2(point[:,0],point[:,2])
-                    theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
+                    phi = np.arctan2(colpoint[:,0],point[:,2])
+                    theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
                     diskcolor =     np.outer(
                             np.mod(phi,0.52359) < 0.261799,
                                         np.array([1.,1.,0.])
@@ -489,12 +533,12 @@ for chunk in chunks:
 
                 elif DISK_TEXTURE == "texture":
 
-                    phi = np.arctan2(point[:,0],point[:,2])
+                    phi = np.arctan2(colpoint[:,0],point[:,2])
                     
                     uv = np.zeros((numChunk,2))
 
                     uv[:,0] = ((phi+2*np.pi)%(2*np.pi))/(2*np.pi)
-                    uv[:,1] = (np.sqrt(pointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
+                    uv[:,1] = (np.sqrt(colpointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
 
                     diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
                     #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
@@ -503,14 +547,14 @@ for chunk in chunks:
 
                 elif DISK_TEXTURE == "blackbody":
 
-                    temperature = np.exp(bb.disktemp(pointsqr,9.2103))
+                    temperature = np.exp(bb.disktemp(colpointsqr,9.2103))
 
                     if REDSHIFT:
-                        R = np.sqrt(pointsqr)
+                        R = np.sqrt(colpointsqr)
 
                         disc_velocity = 0.70710678 * \
-                                    np.power((np.sqrt(pointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
-                                    np.cross(UPFIELD, normalize(point))
+                                    np.power((np.sqrt(colpointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
+                                    np.cross(UPFIELD, normalize(colpoint))
 
 
                         gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
@@ -525,7 +569,7 @@ for chunk in chunks:
                     intensity = bb.intensity(temperature)
                     diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
 
-                    iscotaper = np.clip((pointsqr-DISKINNERSQR)*0.5,0.,1.)
+                    iscotaper = np.clip((colpointsqr-DISKINNERSQR)*0.5,0.,1.)
 
                     diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
 
