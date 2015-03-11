@@ -68,7 +68,7 @@
 			<div class="row">
 				<p>It's now clear I'm on a Black Hole binge (I can stop when I want, by the way). They're endlessly fascinating. My recent interest was in particular focused on simulating visualizations of the Schwarzschild geometry. I was preoccupied by the problem of generating a decent accurate representation of how the curvature of such a spacetime affects the appearance of the sky (since photons from distance sources ride along geodesics bent by the Black Hole), for the purpose of creating an interactive simulation. <a href="http://spiro.fisica.unipd.it/~antonell/schwarzschild/">This</a> was the result (it runs in your browser). The trick was of course to precalculate as much as possible about the deflection of light rays. It worked ok-ish, but the simulation is of course very lacking in features, since it's not actually doing any raytracing (for the laymen: reconstructing the whereabouts of light rays incoming in the camera back in time) on its own.</p>
 
-				<p>This project, instead, aims to shatter these shortcoming by ditching efficiency/interactivity in the most naive way: it's a <strong>full CPU raytracer</strong>, taking all the time it needs to render pictures. The image above was rendered with this program - it took ~15 minutes on my laptop.</p>
+				<p>This project, instead, aims to shatter these shortcoming by ditching efficiency/interactivity in the most naive way: it's a <strong>full CPU raytracer</strong>, taking all the time it needs to render pictures. The image above was rendered with this program - it took <s>15</s> 5 minutes (thanks, RK4) on my laptop.</p>
 
 				<p>This is neither anything new nor is it any better than how it's been done before. It's just really fun for me. I'm writing this page to share not only end-results such as the image above (<a href="http://imgur.com/a/kocqC">also because some people did it better</a>) but also the <strong>process of building these pictures</strong>, with a discussion/explanation of the physics involved and the implementation. Ideally, this could be of inspiration or guidance to people with a similar intent.</p>
 			</div>
@@ -184,7 +184,12 @@
 					      <img src="pics/nicewhite_thumb.jpg">
 					    </a>
 					</div>
-					
+					<div class="col-xs-6 col-md-6 ">
+					    <a href="pics/whitefrontal.jpg" class="thumbnail">
+					      <img src="pics/whitefrontal_thumb.jpg">
+					    </a>
+					</div>
+
 				</div>
 
 				<p>Yeah, they're nothing special. Not an artist here. Let's get back temporarily to the science: the <a href="pics/3dorder.jpg">third image</a>, the one that doesn't seem to make any sense, is actually very precious. It's a zoom on the region between the upper edge of the black disk and the main ("first blue") image of the accretion disk. The observer is placed on the outer rim of the accretion disk itself and zooms in on this detail. The goal was to image as many orders of rings as possible. Three orders are visible: the lighter zone at the top is just the lower rim of the first image of the top-far surface of the disk. The strip at the bottom, below a calm sea of outstretched stars, is the superior part of the second image, the "first green" one, of the bottom-front of the disk. At the very bottom is a thin line of light not more than a pixel wide, glued to the black disk of the photon sphere. This is mainly the third image, the "second blue": it's the image again of the top-far surface, but after the light has completed an additional winding around the black hole. Merged with it, but increasingly thin, are all subsequent higher-order images. Ok, this is something worthy of &lt;blockquote&gt; tags:</p>
@@ -299,15 +304,15 @@
 				\[ \vec F(r) = - \frac{3}{2} h^2 \frac{\hat r}{r^5} \]
 
 				where \(h\) is some constant, and integrate that numerically - it's very easy. Then the solution \(\vec x (T) \), where \(T\) is the abstract time coordinate for this system, is actually a parametrization of the unique solution for the corresponding Binet equation, <strong>which is exactly the geodesic equation</strong>.</p>
-				<p>So we solve Newton's equation in cartesian coordinates, which is the easiest thing ever; I use the leapfrog method instead of RK4 because it's simple, reversible and preserves the constants of motion. Then what I obtain is just the actual lightlike geodesic; with \(T\) a parameter running along it (distinct from both Schwarzschild \(t\) and proper time, that doesn't exist).</p>
-				<p>Numerically, for each ray, we take track of a position variable and a velocity (in the sense of \(\frac{d \vec x}{dT}\) variable. These are set to the observer position and normalized view vector. We also precompute \(h\). Then in each step ve do (pseudocode):</p>
+				<p>So we solve Newton's equation in cartesian coordinates, which is the easiest thing ever; <s>I use the leapfrog method instead of RK4 because it's simple, reversible and preserves the constants of motion.</s> (I now switched to Runge-Kutta to be able to increase step size and reduce render times, but with the future possibility of leaving the choice of integration method to the user). Then what I obtain is just the actual lightlike geodesic; with \(T\) a parameter running along it (distinct from both Schwarzschild \(t\) and proper time, that doesn't exist).</p>
+				<!--<p>Numerically, for each ray, we take track of a position variable and a velocity (in the sense of \(\frac{d \vec x}{dT}\) variable. These are set to the observer position and normalized view vector. We also precompute \(h\). Then in each step ve do (pseudocode):</p>
 
 				<pre>
 					x = x + v*stepsize
 					a = - 1.5 * sqr(h) * x / (x^6)
 					v = v + a*stepsize</pre>
 
-				<p>as simple as that. This is all you need for raytracing photon orbits in Schwarzschild spacetime.</p>
+				<p>as simple as that. This is all you need for raytracing photon orbits in Schwarzschild spacetime.</p>--!>
 				<p>This is much better than the previous method, that worked with polar coordinates in the orbital plane. This is very efficient computationally.</p>
 			</div>
 			
