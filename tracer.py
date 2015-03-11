@@ -649,7 +649,7 @@ print "Conversion to image and saving..."
 sys.stdout.flush()
 
 saveToImg(colour,"tests/out.png")
-saveToImg(total_colour_buffer_preproc,"test/preproc.png")
+saveToImg(total_colour_buffer_preproc,"tests/preproc.png")
 if BLURDO:
     saveToImg(hipass,"tests/hipass.png")
 
