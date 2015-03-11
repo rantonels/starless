@@ -56,7 +56,7 @@ defaults = {
             "Distort":"1",
             "Fogdo":"1",
             "Blurdo":"1",
-            "Fogmult":"0.1",
+            "Fogmult":"0.02",
             "Diskinner":"1.5",
             "Diskouter":"4",
             "Resolution":"160,120",
@@ -403,7 +403,8 @@ for chunk in chunks:
     #useful constant arrays 
     ones = np.ones((numChunk))
     ones3 = np.ones((numChunk,3))
-
+    UPFIELD = np.outer(ones,np.array([0.,1.,0.]))
+    BLACK = np.outer(ones,np.array([1.,1.,1.]))
 
     #arrays of integer pixel coordinates
     x = chunk % RESOLUTION[0]
@@ -580,16 +581,21 @@ for chunk in chunks:
 
 
         # event horizon
-        mask_horizon = np.logical_and((sqrnorm(point) < 1),(sqrnorm(oldpoint) > 1) )
+        oldpointsqr = sqrnorm(oldpoint)
+
+        mask_horizon = np.logical_and((pointsqr < 1),(sqrnorm(oldpoint) > 1) )
 
         if mask_horizon.any() :
 
+            lambdaa = ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
+            colpoint = lambdaa * point + (1-lambdaa)*oldpoint
+
             if HORIZON_GRID:
-                phi = np.arctan2(point[:,0],point[:,2])
-                theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
+                phi = np.arctan2(colpoint[:,0],point[:,2])
+                theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
                 horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
             else:
-                horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))
+                horizoncolour = BLACK#np.zeros((numPixels,3))
 
             horizonalpha = mask_horizon
 

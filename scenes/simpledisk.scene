@@ -1,14 +1,14 @@
 [lofi]
 
 Resolution=160,120
-Iterations=1000
-Stepsize=0.02
+Iterations=350
+Stepsize=0.04
 
 [hifi]
 
 Resolution=1024,786
-Iterations=1000
-Stepsize=0.02
+Iterations=350
+Stepsize=0.04
 
 [geometry]
 
