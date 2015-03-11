@@ -165,6 +165,7 @@ if not os.path.exists("tests"):
 # these need to be here
 # convert from linear rgb to srgb
 def rgbtosrgb(arr):
+    print "RGB -> sRGB..."
     #see https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
     mask = arr > 0.0031308
     arr[mask] **= 1/2.4
@@ -175,6 +176,7 @@ def rgbtosrgb(arr):
 
 # convert from srgb to linear rgb
 def srgbtorgb(arr):
+    print "sRGB -> RGB..."
     mask = arr > 0.04045
     arr[mask] += 0.055
     arr[mask] /= 1.055
@@ -326,7 +328,7 @@ def saveToImgBool(arr,fname):
 
 #PARTITIONING
 
-CHUNKSIZE = 76800
+CHUNKSIZE = 9000
 if not DISABLE_SHUFFLING:
     np.random.shuffle(pixelindices)
 chunks = np.array_split(pixelindices,numPixels/CHUNKSIZE + 1)
@@ -349,6 +351,13 @@ chnkcounter = 0
 
 start_time = time.time()
 
+def format_time(secs):
+    if secs < 60:
+        return "%d s"%secs
+    if secs < 60*3:
+        return "%d m %d s"%divmod(secs,60)
+    return "%d min"%(secs/60)
+
 def showprogress(messtring):
     global itcounter,start_time
     elapsed_time = time.time() - start_time
@@ -361,7 +370,7 @@ def showprogress(messtring):
 
     print "%d%%, %s remaining. Chunk %d/%d, %s"%(
             int(100*progress), 
-            str(datetime.timedelta(seconds=ETA)).split('.',2)[0],
+            format_time(ETA),
             chnkcounter,
             NCHUNKS,
             messtring.ljust(30)
@@ -409,8 +418,6 @@ for chunk in chunks:
 
     velocity = np.copy(normview)
 
-    #ignore all references to donemask. It's deprecated.
-    donemask = np.zeros((numChunk),dtype=np.bool)
 
     # initializing the colour buffer
     object_colour = np.zeros((numChunk,3))
@@ -423,7 +430,7 @@ for chunk in chunks:
     for it in range(NITER):
         itcounter+=1
 
-        if it%15 == 1:
+        if it%150 == 1:
             showprogress("Raytracing...")
 
         # STEPPING
@@ -440,8 +447,8 @@ for chunk in chunks:
 
         #useful precalcs
         pointsqr = sqrnorm(point)
-        phi = np.arctan2(point[:,0],point[:,2])
-        normvel = normalize(velocity)
+        #phi = np.arctan2(point[:,0],point[:,2])    #too heavy. Better an instance wherever it's needed.
+        #normvel = normalize(velocity)              #never used! BAD BAD BAD!!
 
 
         # FOG
@@ -467,6 +474,7 @@ for chunk in chunks:
             if (diskmask.any()):
 
                 if DISK_TEXTURE == "grid":
+                    phi = np.arctan2(point[:,0],point[:,2])
                     theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
                     diskcolor =     np.outer(
                             np.mod(phi,0.52359) < 0.261799,
@@ -480,6 +488,9 @@ for chunk in chunks:
                     diskalpha = diskmask
 
                 elif DISK_TEXTURE == "texture":
+
+                    phi = np.arctan2(point[:,0],point[:,2])
+                    
                     uv = np.zeros((numChunk,2))
 
                     uv[:,0] = ((phi+2*np.pi)%(2*np.pi))/(2*np.pi)
@@ -490,7 +501,6 @@ for chunk in chunks:
                     #diskmask = np.logical_and(diskmask, alphamask )
                     diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
 
-                #object_colour += np.outer(np.logical_not(donemask)*diskmask,np.array([1.,1.,1.])) * diskcolor
                 elif DISK_TEXTURE == "blackbody":
 
                     temperature = np.exp(bb.disktemp(pointsqr,9.2103))
@@ -523,7 +533,6 @@ for chunk in chunks:
                 object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
                 object_alpha = blendalpha(diskalpha, object_alpha)
 
-                donemask = np.logical_or(donemask ,  diskmask)
 
 
         # event horizon
@@ -532,19 +541,18 @@ for chunk in chunks:
         if mask_horizon.any() :
 
             if HORIZON_GRID:
+                phi = np.arctan2(point[:,0],point[:,2])
                 theta = np.arctan2(point[:,1],norm(point[:,[0,2]]))
                 horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
             else:
                 horizoncolour = np.outer(ones,np.array([0.,0.,0.]))#np.zeros((numPixels,3))
 
-            #object_colour += np.outer(np.logical_not(donemask)*mask_horizon,np.array([1.,1.,1.])) * horizoncolour
             horizonalpha = mask_horizon
 
             object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
             object_alpha = blendalpha(horizonalpha, object_alpha)
 
 
-            donemask = np.logical_or(donemask,mask_horizon)
 
 
 
@@ -568,8 +576,6 @@ for chunk in chunks:
     ##debug color: direction of final ray
     ##debug color: grid
     #dbg_grid = np.abs(normalize(velocity)) < 0.1
-    ##debug color: donemask
-    #dbg_done = np.outer(donemask,np.array([1.,1.,1.]))
 
 
     if SKY_TEXTURE == 'texture':
@@ -589,10 +595,15 @@ for chunk in chunks:
 
     showprogress("beaming back to mothership.")
     # copy back in the buffer
-    total_colour_buffer_preproc[chunk] = col_bg_and_obj
+    if not DISABLE_SHUFFLING:
+        total_colour_buffer_preproc[chunk] = col_bg_and_obj
+    else:
+        total_colour_buffer_preproc[chunk[0]:(chunk[-1]+1)] = col_bg_and_obj
+
 
     #refresh display
     if not DISABLE_DISPLAY:
+        showprogress("updating display...")
         plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
         plt.draw()
 
