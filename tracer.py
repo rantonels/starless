@@ -8,6 +8,8 @@ import scipy.misc as spm
 import random,sys,time,os
 import datetime
 
+import threading
+
 import blackbody as bb
 
 import gc
@@ -24,6 +26,8 @@ LOFI = False
 DISABLE_DISPLAY = 0
 DISABLE_SHUFFLING = 0
 
+NTHREADS = 4
+
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
     if arg == '-d':
@@ -34,6 +38,10 @@ for arg in sys.argv[1:]:
         continue
     if arg == '--no-shuffle':
         DISABLE_SHUFFLING = 1
+        continue
+
+    if arg[0:2] == "-j":
+        NTHREADS = int(arg[2:])
         continue
 
     if arg[0] == '-':
@@ -342,6 +350,8 @@ def saveToImgBool(arr,fname):
 
 #PARTITIONING
 
+#partition viewport in contiguous chunks
+
 CHUNKSIZE = 9000
 if not DISABLE_SHUFFLING:
     np.random.shuffle(pixelindices)
@@ -353,6 +363,8 @@ print "Split into %d chunks of %d pixels each"%(NCHUNKS,chunks[0].shape[0])
 
 total_colour_buffer_preproc = np.zeros((numPixels,3))
 
+#open preview window
+
 if not DISABLE_DISPLAY:
     print "Opening display..."
 
@@ -360,10 +372,71 @@ if not DISABLE_DISPLAY:
     plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
     plt.draw()
 
-itcounter = 0
-chnkcounter = 0
 
+#shuffle chunk list (does very good for equalizing load)
+
+random.shuffle(chunks)
+
+
+#partition chunk list in schedules for single threads
+
+schedules = []
+
+schsize = int(np.ceil( NCHUNKS / NTHREADS ))+1
+
+for i in range(NTHREADS-1):
+    schedules.append(chunks[schsize*i : schsize*(i+1)]) # first NTHREADS-1 schedules are equally divided
+schedules.append(chunks[schsize*(NTHREADS-1) : NCHUNKS ])        # last gets what's left
+
+print "Split list into %d schedules with %s chunks each"%(NTHREADS, ", ".join([str(len(s)) for s in schedules]) )
+
+
+
+
+# global clock start
 start_time = time.time()
+
+itcounters = [0 for i in range(NTHREADS)]
+chnkcounters = [0 for i in range(NTHREADS)]
+
+#killers
+
+killers = [False for i in range(NTHREADS)]
+
+
+# command line output
+
+class Outputter:
+    def name(self,num):
+        if num == -1:
+            return "M"
+        else:
+            return str(num)
+
+    def __init__(self):
+        self.message = {}
+        for i in range(NTHREADS):
+            self.message[i] = "..."
+        self.message[-1] = "..."
+
+    def doprint(self):
+        outst = ""
+        for i in range(-1,NTHREADS):
+            outst += self.name(i) + "] " + self.message[i] + "\n"
+        print outst, "\033[F"*(NTHREADS+1) + '\r',
+        sys.stdout.flush()
+ 
+    def setmessage(self,mess,i):
+        self.message[i] = mess.ljust(60)
+        self.doprint()
+
+    def __del__(self):
+        try:
+            print '\n'*(NTHREADS+1)
+        except:
+            pass
+
+output = Outputter()
 
 def format_time(secs):
     if secs < 60:
@@ -372,293 +445,345 @@ def format_time(secs):
         return "%d m %d s"%divmod(secs,60)
     return "%d min"%(secs/60)
 
-def showprogress(messtring):
-    global itcounter,start_time
+def showprogress(messtring,i):
+    global itcounters,start_time,output
+
     elapsed_time = time.time() - start_time
-    progress = float(itcounter)/(NCHUNKS*NITER)
+    progress = float(itcounters[i])/(len(schedules[i])*NITER)
 
     try:
         ETA = elapsed_time / progress * (1-progress)
     except ZeroDivisionError:
         ETA = 0
 
-    print "%d%%, %s remaining. Chunk %d/%d, %s"%(
+    mes = "%d%%, %s remaining. Chunk %d/%d, %s"%(
             int(100*progress), 
             format_time(ETA),
-            chnkcounter,
-            NCHUNKS,
+            chnkcounters[i],
+            len(schedules[i]),
             messtring.ljust(30)
-                ),
-    sys.stdout.flush()
-    print "\r",
-
-
-
-for chunk in chunks:
-    chnkcounter+=1
-
-    #number of chunk pixels
-    numChunk = chunk.shape[0]
-
-    #useful constant arrays 
-    ones = np.ones((numChunk))
-    ones3 = np.ones((numChunk,3))
-    UPFIELD = np.outer(ones,np.array([0.,1.,0.]))
-    BLACK = np.outer(ones,np.array([1.,1.,1.]))
-
-    #arrays of integer pixel coordinates
-    x = chunk % RESOLUTION[0]
-    y = chunk / RESOLUTION[0]
-
-    showprogress("Generating view vectors...")
-
-    #the view vector in 3D space
-    view = np.zeros((numChunk,3))
-
-    view[:,0] = x.astype(float)/RESOLUTION[0] - .5
-    view[:,1] = ((-y.astype(float)/RESOLUTION[1] + .5)*RESOLUTION[1])/RESOLUTION[0] #(inverting y coordinate)
-    view[:,2] = 1.0
-
-    view[:,0]*=TANFOV
-    view[:,1]*=TANFOV
-
-    #rotating through the view matrix
-
-    view = np.einsum('jk,ik->ij',viewMatrix,view)
-
-    #original position
-    point = np.outer(ones, CAMERA_POS)
-
-    normview = normalize(view)
-
-    velocity = np.copy(normview)
-
-
-    # initializing the colour buffer
-    object_colour = np.zeros((numChunk,3))
-    object_alpha = np.zeros(numChunk)
-
-    #squared angular momentum per unit mass (in the "Newtonian fantasy")
-    #h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
-    h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
-
-    pointsqr = np.copy(ones3)
-
-    for it in range(NITER):
-        itcounter+=1
-
-        if it%150 == 1:
-            showprogress("Raytracing...")
-
-        # STEPPING
-        oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
-
-        if METHOD == METH_LEAPFROG:
-            #leapfrog method here feels good
-            point += velocity * STEP
-
-            if DISTORT:
-                #this is the magical - 3/2 r^(-5) potential...
-                accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
-                velocity += accel * STEP
-
-        elif METHOD == METH_RK4:
-            #simple step size control
-            rkstep = STEP
-
-            # standard Runge-Kutta
-            y = np.zeros((numChunk,6))
-            y[:,0:3] = point
-            y[:,3:6] = velocity
-            k1 = RK4f( y, h2)
-            k2 = RK4f( y + 0.5*rkstep*k1, h2)
-            k3 = RK4f( y + 0.5*rkstep*k2, h2)
-            k4 = RK4f( y +     rkstep*k3, h2)
-
-            increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
-
-            point += increment[:,0:3]
-            velocity += increment[:,3:6]
+                )
+    output.setmessage(mes,i)
 
 
 
 
+def raytrace_schedule(i): # this is the function running on each thread
+    global schedules,itcounters,chnkcounters,killers
+
+    schedule = schedules[i]
+
+    itcounters[i] = 0
+    chnkcounters[i]= 0
+
+    for chunk in schedule:
+        if killers[i]:
+            break
+        chnkcounters[i]+=1
+
+        #number of chunk pixels
+        numChunk = chunk.shape[0]
+
+        #useful constant arrays 
+        ones = np.ones((numChunk))
+        ones3 = np.ones((numChunk,3))
+        UPFIELD = np.outer(ones,np.array([0.,1.,0.]))
+        BLACK = np.outer(ones,np.array([0.,0.,0.]))
+
+        #arrays of integer pixel coordinates
+        x = chunk % RESOLUTION[0]
+        y = chunk / RESOLUTION[0]
+
+        showprogress("Generating view vectors...",i)
+
+        #the view vector in 3D space
+        view = np.zeros((numChunk,3))
+
+        view[:,0] = x.astype(float)/RESOLUTION[0] - .5
+        view[:,1] = ((-y.astype(float)/RESOLUTION[1] + .5)*RESOLUTION[1])/RESOLUTION[0] #(inverting y coordinate)
+        view[:,2] = 1.0
+
+        view[:,0]*=TANFOV
+        view[:,1]*=TANFOV
+
+        #rotating through the view matrix
+
+        view = np.einsum('jk,ik->ij',viewMatrix,view)
+
+        #original position
+        point = np.outer(ones, CAMERA_POS)
+
+        normview = normalize(view)
+
+        velocity = np.copy(normview)
 
 
-        #useful precalcs
-        pointsqr = sqrnorm(point)
-        #phi = np.arctan2(point[:,0],point[:,2])    #too heavy. Better an instance wherever it's needed.
-        #normvel = normalize(velocity)              #never used! BAD BAD BAD!!
+        # initializing the colour buffer
+        object_colour = np.zeros((numChunk,3))
+        object_alpha = np.zeros(numChunk)
+
+        #squared angular momentum per unit mass (in the "Newtonian fantasy")
+        #h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
+        h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
+
+        pointsqr = np.copy(ones3)
+
+        for it in range(NITER):
+            itcounters[i]+=1
+
+            if it%150 == 1:
+                if killers[i]:
+                    break
+                showprogress("Raytracing...",i)
+
+            # STEPPING
+            oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
+
+            if METHOD == METH_LEAPFROG:
+                #leapfrog method here feels good
+                point += velocity * STEP
+
+                if DISTORT:
+                    #this is the magical - 3/2 r^(-5) potential...
+                    accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
+                    velocity += accel * STEP
+
+            elif METHOD == METH_RK4:
+                #simple step size control
+                rkstep = STEP
+
+                # standard Runge-Kutta
+                y = np.zeros((numChunk,6))
+                y[:,0:3] = point
+                y[:,3:6] = velocity
+                k1 = RK4f( y, h2)
+                k2 = RK4f( y + 0.5*rkstep*k1, h2)
+                k3 = RK4f( y + 0.5*rkstep*k2, h2)
+                k4 = RK4f( y +     rkstep*k3, h2)
+
+                increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
+
+                point += increment[:,0:3]
+                velocity += increment[:,3:6]
 
 
-        # FOG
-
-        if FOGDO and (it%FOGSKIP == 0):
-            fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
-            fogcol = ones3
-
-            object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
-            object_alpha = blendalpha(fogint, object_alpha)
 
 
-        # CHECK COLLISIONS
-        # accretion disk
 
-        if DISK_TEXTURE != "none":
 
-            mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
-            mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
+            #useful precalcs
+            pointsqr = sqrnorm(point)
+            #phi = np.arctan2(point[:,0],point[:,2])    #too heavy. Better an instance wherever it's needed.
+            #normvel = normalize(velocity)              #never used! BAD BAD BAD!!
 
-            diskmask = np.logical_and(mask_crossing,mask_distance)
 
-            if (diskmask.any()):
-                
-                #actual collision point by intersection
-                lambdaa = - point[:,1]/velocity[:,1]
-                colpoint = point + lambdaa[:,np.newaxis] * velocity
-                colpointsqr = sqrnorm(colpoint)
+            # FOG
 
-                if DISK_TEXTURE == "grid":
+            if FOGDO and (it%FOGSKIP == 0):
+                fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
+                fogcol = ones3
+
+                object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
+                object_alpha = blendalpha(fogint, object_alpha)
+
+
+            # CHECK COLLISIONS
+            # accretion disk
+
+            if DISK_TEXTURE != "none":
+
+                mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
+                mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
+
+                diskmask = np.logical_and(mask_crossing,mask_distance)
+
+                if (diskmask.any()):
+                    
+                    #actual collision point by intersection
+                    lambdaa = - point[:,1]/velocity[:,1]
+                    colpoint = point + lambdaa[:,np.newaxis] * velocity
+                    colpointsqr = sqrnorm(colpoint)
+
+                    if DISK_TEXTURE == "grid":
+                        phi = np.arctan2(colpoint[:,0],point[:,2])
+                        theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
+                        diskcolor =     np.outer(
+                                np.mod(phi,0.52359) < 0.261799,
+                                            np.array([1.,1.,0.])
+                                                ) +  \
+                                        np.outer(ones,np.array([0.,0.,1.]) )
+                        diskalpha = diskmask
+
+                    elif DISK_TEXTURE == "solid":
+                        diskcolor = np.array([1.,1.,.98])
+                        diskalpha = diskmask
+
+                    elif DISK_TEXTURE == "texture":
+
+                        phi = np.arctan2(colpoint[:,0],point[:,2])
+                        
+                        uv = np.zeros((numChunk,2))
+
+                        uv[:,0] = ((phi+2*np.pi)%(2*np.pi))/(2*np.pi)
+                        uv[:,1] = (np.sqrt(colpointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
+
+                        diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
+                        #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
+                        #diskmask = np.logical_and(diskmask, alphamask )
+                        diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
+
+                    elif DISK_TEXTURE == "blackbody":
+
+                        temperature = np.exp(bb.disktemp(colpointsqr,9.2103))
+
+                        if REDSHIFT:
+                            R = np.sqrt(colpointsqr)
+
+                            disc_velocity = 0.70710678 * \
+                                        np.power((np.sqrt(colpointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
+                                        np.cross(UPFIELD, normalize(colpoint))
+
+
+                            gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
+
+                            # opz = 1 + z
+                            opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
+                            opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
+
+                            # (1+z)-redshifted Planck spectrum is still Planckian at temperature T
+                            temperature /= (opz_doppler*opz_gravitational).clip(0.1)
+
+                        intensity = bb.intensity(temperature)
+                        diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+
+                        iscotaper = np.clip((colpointsqr-DISKINNERSQR)*0.5,0.,1.)
+
+                        diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
+
+
+                    object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
+                    object_alpha = blendalpha(diskalpha, object_alpha)
+
+
+
+            # event horizon
+            oldpointsqr = sqrnorm(oldpoint)
+
+            mask_horizon = np.logical_and((pointsqr < 1),(sqrnorm(oldpoint) > 1) )
+
+            if mask_horizon.any() :
+
+                lambdaa = ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
+                colpoint = lambdaa * point + (1-lambdaa)*oldpoint
+
+                if HORIZON_GRID:
                     phi = np.arctan2(colpoint[:,0],point[:,2])
                     theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
-                    diskcolor =     np.outer(
-                            np.mod(phi,0.52359) < 0.261799,
-                                        np.array([1.,1.,0.])
-                                            ) +  \
-                                    np.outer(ones,np.array([0.,0.,1.]) )
-                    diskalpha = diskmask
+                    horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
+                else:
+                    horizoncolour = BLACK#np.zeros((numPixels,3))
 
-                elif DISK_TEXTURE == "solid":
-                    diskcolor = np.array([1.,1.,.98])
-                    diskalpha = diskmask
+                horizonalpha = mask_horizon
 
-                elif DISK_TEXTURE == "texture":
-
-                    phi = np.arctan2(colpoint[:,0],point[:,2])
-                    
-                    uv = np.zeros((numChunk,2))
-
-                    uv[:,0] = ((phi+2*np.pi)%(2*np.pi))/(2*np.pi)
-                    uv[:,1] = (np.sqrt(colpointsqr)-DISKINNER)/(DISKOUTER-DISKINNER)
-
-                    diskcolor = lookup ( texarr_disk, np.clip(uv,0.,1.))
-                    #alphamask = (2.0*ransample) < sqrnorm(diskcolor)
-                    #diskmask = np.logical_and(diskmask, alphamask )
-                    diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
-
-                elif DISK_TEXTURE == "blackbody":
-
-                    temperature = np.exp(bb.disktemp(colpointsqr,9.2103))
-
-                    if REDSHIFT:
-                        R = np.sqrt(colpointsqr)
-
-                        disc_velocity = 0.70710678 * \
-                                    np.power((np.sqrt(colpointsqr)-1.).clip(0.1),-.5)[:,np.newaxis] * \
-                                    np.cross(UPFIELD, normalize(colpoint))
-
-
-                        gamma =  np.power( 1 - sqrnorm(disc_velocity).clip(max=.99), -.5)
-
-                        # opz = 1 + z
-                        opz_doppler = gamma * ( 1. + np.einsum('ij,ij->i',disc_velocity,normalize(velocity)))
-                        opz_gravitational = np.power(1.- 1/R.clip(1),-.5)
-
-                        # (1+z)-redshifted Planck spectrum is still Planckian at temperature T
-                        temperature /= (opz_doppler*opz_gravitational).clip(0.1)
-
-                    intensity = bb.intensity(temperature)
-                    diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
-
-                    iscotaper = np.clip((colpointsqr-DISKINNERSQR)*0.5,0.,1.)
-
-                    diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
-
-
-                object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
-                object_alpha = blendalpha(diskalpha, object_alpha)
-
-
-
-        # event horizon
-        oldpointsqr = sqrnorm(oldpoint)
-
-        mask_horizon = np.logical_and((pointsqr < 1),(sqrnorm(oldpoint) > 1) )
-
-        if mask_horizon.any() :
-
-            lambdaa = ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
-            colpoint = lambdaa * point + (1-lambdaa)*oldpoint
-
-            if HORIZON_GRID:
-                phi = np.arctan2(colpoint[:,0],point[:,2])
-                theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
-                horizoncolour = np.outer( np.logical_xor(np.mod(phi,1.04719) < 0.52359,np.mod(theta,1.04719) < 0.52359), np.array([1.,0.,0.]))
-            else:
-                horizoncolour = BLACK#np.zeros((numPixels,3))
-
-            horizonalpha = mask_horizon
-
-            object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
-            object_alpha = blendalpha(horizonalpha, object_alpha)
+                object_colour = blendcolors(horizoncolour,horizonalpha,object_colour,object_alpha)
+                object_alpha = blendalpha(horizonalpha, object_alpha)
 
 
 
 
 
-    showprogress("generating sky layer...")
+        showprogress("generating sky layer...",i)
 
-    vphi = np.arctan2(velocity[:,0],velocity[:,2])
-    vtheta = np.arctan2(velocity[:,1],norm(velocity[:,[0,2]]) )
+        vphi = np.arctan2(velocity[:,0],velocity[:,2])
+        vtheta = np.arctan2(velocity[:,1],norm(velocity[:,[0,2]]) )
 
-    vuv = np.zeros((numChunk,2))
+        vuv = np.zeros((numChunk,2))
 
-    vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
-    vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
+        vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
+        vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
 
-    if SKY_TEXTURE == 'texture':
-        col_sky = lookup(texarr_sky,vuv)[:,0:3]
+        if SKY_TEXTURE == 'texture':
+            col_sky = lookup(texarr_sky,vuv)[:,0:3]
 
-    showprogress("generating debug layers...")
+        showprogress("generating debug layers...",i)
 
-    ##debug color: direction of view vector
-    #dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
-    ##debug color: direction of final ray
-    ##debug color: grid
-    #dbg_grid = np.abs(normalize(velocity)) < 0.1
-
-
-    if SKY_TEXTURE == 'texture':
-        col_bg = col_sky
-    elif SKY_TEXTURE == 'none':
-        col_bg = np.zeros((numChunk,3))
-    elif SKY_TEXTURE == 'final':
-        dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
-        col_bg = dbg_finvec
-    else:
-        col_bg = np.zeros((numChunk,3))
+        ##debug color: direction of view vector
+        #dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
+        ##debug color: direction of final ray
+        ##debug color: grid
+        #dbg_grid = np.abs(normalize(velocity)) < 0.1
 
 
-    showprogress("blending layers...")
+        if SKY_TEXTURE == 'texture':
+            col_bg = col_sky
+        elif SKY_TEXTURE == 'none':
+            col_bg = np.zeros((numChunk,3))
+        elif SKY_TEXTURE == 'final':
+            dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
+            col_bg = dbg_finvec
+        else:
+            col_bg = np.zeros((numChunk,3))
 
-    col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
 
-    showprogress("beaming back to mothership.")
-    # copy back in the buffer
-    if not DISABLE_SHUFFLING:
-        total_colour_buffer_preproc[chunk] = col_bg_and_obj
-    else:
-        total_colour_buffer_preproc[chunk[0]:(chunk[-1]+1)] = col_bg_and_obj
+        showprogress("blending layers...",i)
+
+        col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
+
+        showprogress("beaming back to mothership.",i)
+        # copy back in the buffer
+        if not DISABLE_SHUFFLING:
+            total_colour_buffer_preproc[chunk] = col_bg_and_obj
+        else:
+            total_colour_buffer_preproc[chunk[0]:(chunk[-1]+1)] = col_bg_and_obj
 
 
-    #refresh display
-    if not DISABLE_DISPLAY:
-        showprogress("updating display...")
-        plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
-        plt.draw()
+        #refresh display
+        # NO: plt does not allow drawing outside main thread
+        #if not DISABLE_DISPLAY:
+        #    showprogress("updating display...")
+        #    plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
+        #    plt.draw()
 
-    showprogress("garbage collection...")
-    gc.collect()
+        showprogress("garbage collection...",i)
+        gc.collect()
+
+    output.setmessage("Done.",i)
+
+# Threading
+
+thread_list = []
+for i in range(NTHREADS):
+    t = threading.Thread(target=raytrace_schedule,args=(i,))
+    thread_list.append(t)
+
+print "Starting threads..."
+
+for thread in thread_list:
+    thread.start()
+
+try:
+    while True:
+        time.sleep(3)
+
+        if not DISABLE_DISPLAY:
+            output.setmessage("Updating display...",-1)
+            plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
+            plt.draw()
+
+        output.setmessage("Idle.",-1)
+
+        alldone = True
+        for i in range(NTHREADS):
+            if thread_list[i].isAlive():
+                alldone = False
+        if alldone:
+            break
+except KeyboardInterrupt:
+    for i in range(NTHREADS):
+        killers[i] = True
+    sys.exit()
+
+del output
 
 
 print "Done tracing."
