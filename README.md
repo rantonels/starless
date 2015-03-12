@@ -14,7 +14,7 @@ It is still in development and will be presented on my site along with [my real 
 - Dust
 - Bloom postprocessing
 - Completely parallel - renders chunks of the image using numpy arrays arithmetic
-- Multithreaded (and so multicore, since numpy does not suffer from the GIL)
+- Multicore (with multiprocessing)
 - Easy debugging by saving masks and intermediate results as images
 
 ## (Possible) future features
@@ -68,13 +68,11 @@ and wait. The rendered image will be in the `tests` folder under the name `out.p
 
 To run the full render, just omit the `-d` option. The results will still be saved in `tests`.
 
-## Multithreading
+## Multiprocessing
 
-The raytracer is multithreaded. It partitions the viewport in chunks, then partitions again the list of chunks to distribute them to threads. By default, 4 threads are created. This number can and should be changed with the option `-jN`. 
+The raytracer is multicore. It partitions the viewport in chunks, then partitions again the list of chunks to distribute them to processes. By default, 4 processes are created. This number can and should be changed with the option `-jN`. 
 
-Best results should arise when the number of threads equals the number of cores of the machine.
-
-Note that while pure python does not obtain any speed boosts from multithreading, and in fact runs slower, because of the GIL, numpy does not have this restriction, and numpy operations will not interleave and will run in parallel over different cores.
+Best results should arise when the number of processes equals the number of cores of the machine. However, your mileage may vary - experiment with different values of `-j` and see what works best for you. It's entirely possible you don't get any speedup from multiprocessing; in that case use `-j1` to avoid overhead.
 
 ## Command line usage
 
@@ -89,7 +87,7 @@ Note that while pure python does not obtain any speed boosts from multithreading
 1) copying rendered data to the large final image buffer is slightly faster if it's contiguous
 2) per chunk, the raytracer performs full calculations relative to an object (disc, horizon, etc) if and only if at least one ray of it its the object. So, if chunks are actually contiguous, there is a certain probability that some of them will never hit certain objects and many computations will be skipped. Shuffled chunks almost surely hit every object in the scene.
 
-`-jN`: use N threads (tip: use N = number of cores). Default is 4.
+`-jN`: use N processes (tip: use N = number of cores). Default is 4.
 
 The (single) scene filename can be placed anywhere on the command string, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
