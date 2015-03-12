@@ -44,13 +44,21 @@ Texture files are not needed if rendering with modes that don't use them.
 
 ## Installation
 
-Clone with git:
+### Linux
+
+Download the [latest release](https://github.com/rantonels/starless/releases).
+
+If you want the absolute bleeding edge version, clone with git:
 
 ```
 $ git clone https://github.com/rantonels/starless.git
 ```
 
-**or** download this [zip file](https://github.com/rantonels/starless/archive/master.zip) and extract.
+I make absolutely no guarantees about the stability of anything, but generally you should be safer with the release.
+
+### Windows
+
+Hilarious.
 
 ## How to run
 
