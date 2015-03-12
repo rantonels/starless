@@ -8,7 +8,8 @@ import scipy.misc as spm
 import random,sys,time,os
 import datetime
 
-import threading
+import multiprocessing as multi
+import ctypes
 
 import blackbody as bb
 
@@ -344,6 +345,12 @@ def saveToImgBool(arr,fname):
     saveToImg(np.outer(arr,np.array([1.,1.,1.])),fname)
 
 
+#for shared arrays
+
+def tonumpyarray(mp_arr):
+    a = np.frombuffer(mp_arr.get_obj(), dtype=np.float32)
+    a.shape = ((numPixels,3))
+    return a
 
 
 
@@ -361,7 +368,8 @@ NCHUNKS = len(chunks)
 
 print "Split into %d chunks of %d pixels each"%(NCHUNKS,chunks[0].shape[0])
 
-total_colour_buffer_preproc = np.zeros((numPixels,3))
+total_colour_buffer_preproc_shared = multi.Array(ctypes.c_float, numPixels * 3)
+total_colour_buffer_preproc = tonumpyarray(total_colour_buffer_preproc_shared)
 
 #open preview window
 
@@ -382,11 +390,14 @@ random.shuffle(chunks)
 
 schedules = []
 
-schsize = int(np.ceil( NCHUNKS / NTHREADS ))+1
+#from http://stackoverflow.com/questions/2659900/python-slicing-a-list-into-n-nearly-equal-length-partitions
+q,r = divmod(NCHUNKS, NTHREADS)
+indices = [q*i + min(i,r) for i in xrange(NTHREADS+1)]
 
-for i in range(NTHREADS-1):
-    schedules.append(chunks[schsize*i : schsize*(i+1)]) # first NTHREADS-1 schedules are equally divided
-schedules.append(chunks[schsize*(NTHREADS-1) : NCHUNKS ])        # last gets what's left
+for i in range(NTHREADS):
+    schedules.append(chunks[ indices[i]:indices[i+1] ]) 
+
+
 
 print "Split list into %d schedules with %s chunks each"%(NTHREADS, ", ".join([str(len(s)) for s in schedules]) )
 
@@ -415,6 +426,8 @@ class Outputter:
 
     def __init__(self):
         self.message = {}
+        self.queue = multi.Queue()
+
         for i in range(NTHREADS):
             self.message[i] = "..."
         self.message[-1] = "..."
@@ -425,10 +438,20 @@ class Outputter:
             outst += self.name(i) + "] " + self.message[i] + "\n"
         print outst, "\033[F"*(NTHREADS+1) + '\r',
         sys.stdout.flush()
- 
+
+    def parsemessages(self):
+        doref = False
+        while not self.queue.empty():
+            i,m = self.queue.get()
+            self.setmessage(m,i)
+            doref = True
+
+        if doref:
+            self.doprint()
+
     def setmessage(self,mess,i):
         self.message[i] = mess.ljust(60)
-        self.doprint()
+        #self.doprint()
 
     def __del__(self):
         try:
@@ -445,8 +468,8 @@ def format_time(secs):
         return "%d m %d s"%divmod(secs,60)
     return "%d min"%(secs/60)
 
-def showprogress(messtring,i):
-    global itcounters,start_time,output
+def showprogress(messtring,i,queue):
+    global start_time
 
     elapsed_time = time.time() - start_time
     progress = float(itcounters[i])/(len(schedules[i])*NITER)
@@ -463,23 +486,29 @@ def showprogress(messtring,i):
             len(schedules[i]),
             messtring.ljust(30)
                 )
-    output.setmessage(mes,i)
+    queue.put((i,mes))
 
 
+#def showprogress(m,i):
+#    pass
 
+def raytrace_schedule(i,schedule,total_shared,q): # this is the function running on each thread
+    #global schedules,itcounters,chnkcounters,killers
 
-def raytrace_schedule(i): # this is the function running on each thread
-    global schedules,itcounters,chnkcounters,killers
+    if len(schedule) == 0:
+        return
 
-    schedule = schedules[i]
+    total_colour_buffer_preproc = tonumpyarray(total_shared)
 
-    itcounters[i] = 0
-    chnkcounters[i]= 0
+    #schedule = schedules[i]
+
+    #itcounters[i] = 0
+    #chnkcounters[i]= 0
 
     for chunk in schedule:
-        if killers[i]:
-            break
-        chnkcounters[i]+=1
+        #if killers[i]:
+        #    break
+        #chnkcounters[i]+=1
 
         #number of chunk pixels
         numChunk = chunk.shape[0]
@@ -494,7 +523,7 @@ def raytrace_schedule(i): # this is the function running on each thread
         x = chunk % RESOLUTION[0]
         y = chunk / RESOLUTION[0]
 
-        showprogress("Generating view vectors...",i)
+        showprogress("Generating view vectors...",i,q)
 
         #the view vector in 3D space
         view = np.zeros((numChunk,3))
@@ -534,7 +563,7 @@ def raytrace_schedule(i): # this is the function running on each thread
             if it%150 == 1:
                 if killers[i]:
                     break
-                showprogress("Raytracing...",i)
+                showprogress("Raytracing...",i,q)
 
             # STEPPING
             oldpoint = np.copy(point) #not needed for tracing. Useful for intersections
@@ -565,10 +594,6 @@ def raytrace_schedule(i): # this is the function running on each thread
 
                 point += increment[:,0:3]
                 velocity += increment[:,3:6]
-
-
-
-
 
 
             #useful precalcs
@@ -690,9 +715,7 @@ def raytrace_schedule(i): # this is the function running on each thread
 
 
 
-
-
-        showprogress("generating sky layer...",i)
+        showprogress("generating sky layer...",i,q)
 
         vphi = np.arctan2(velocity[:,0],velocity[:,2])
         vtheta = np.arctan2(velocity[:,1],norm(velocity[:,[0,2]]) )
@@ -705,7 +728,7 @@ def raytrace_schedule(i): # this is the function running on each thread
         if SKY_TEXTURE == 'texture':
             col_sky = lookup(texarr_sky,vuv)[:,0:3]
 
-        showprogress("generating debug layers...",i)
+        showprogress("generating debug layers...",i,q)
 
         ##debug color: direction of view vector
         #dbg_viewvec = np.clip(view + vec3(.5,.5,0.0),0.0,1.0)
@@ -725,11 +748,11 @@ def raytrace_schedule(i): # this is the function running on each thread
             col_bg = np.zeros((numChunk,3))
 
 
-        showprogress("blending layers...",i)
+        showprogress("blending layers...",i,q)
 
         col_bg_and_obj = blendcolors(SKYDISK_RATIO*col_bg, ones ,object_colour,object_alpha)
 
-        showprogress("beaming back to mothership.",i)
+        showprogress("beaming back to mothership.",i,q)
         # copy back in the buffer
         if not DISABLE_SHUFFLING:
             total_colour_buffer_preproc[chunk] = col_bg_and_obj
@@ -744,28 +767,32 @@ def raytrace_schedule(i): # this is the function running on each thread
         #    plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
         #    plt.draw()
 
-        showprogress("garbage collection...",i)
+        showprogress("garbage collection...",i,q)
         gc.collect()
 
-    output.setmessage("Done.",i)
+    showprogress("Done.",i,q)
 
 # Threading
 
-thread_list = []
+process_list = []
 for i in range(NTHREADS):
-    t = threading.Thread(target=raytrace_schedule,args=(i,))
-    thread_list.append(t)
+    p = multi.Process(target=raytrace_schedule,args=(i,schedules[i],total_colour_buffer_preproc_shared,output.queue))
+    process_list.append(p)
 
 print "Starting threads..."
 
-for thread in thread_list:
-    thread.start()
+for proc in process_list:
+    proc.start()
 
 try:
+    refreshcounter = 0
     while True:
-        time.sleep(3)
+        refreshcounter+=1
+        time.sleep(0.1)
+    
+        output.parsemessages()
 
-        if not DISABLE_DISPLAY:
+        if not DISABLE_DISPLAY and (refreshcounter%40 == 0):
             output.setmessage("Updating display...",-1)
             plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
             plt.draw()
@@ -774,7 +801,7 @@ try:
 
         alldone = True
         for i in range(NTHREADS):
-            if thread_list[i].isAlive():
+            if process_list[i].is_alive():
                 alldone = False
         if alldone:
             break
