@@ -502,13 +502,13 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
 
     #schedule = schedules[i]
 
-    #itcounters[i] = 0
-    #chnkcounters[i]= 0
+    itcounters[i] = 0
+    chnkcounters[i]= 0
 
     for chunk in schedule:
         #if killers[i]:
         #    break
-        #chnkcounters[i]+=1
+        chnkcounters[i]+=1
 
         #number of chunk pixels
         numChunk = chunk.shape[0]
