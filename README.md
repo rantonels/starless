@@ -72,7 +72,9 @@ To run the full render, just omit the `-d` option. The results will still be sav
 
 The raytracer is multicore. It partitions the viewport in chunks, then partitions again the list of chunks to distribute them to processes. By default, 4 processes are created. This number can and should be changed with the option `-jN`. 
 
-Best results should arise when the number of processes equals the number of cores of the machine. However, your mileage may vary - experiment with different values of `-j` and see what works best for you. It's entirely possible you don't get any speedup from multiprocessing; in that case use `-j1` to avoid overhead.
+Best results should arise when the number of processes equals the number of cores of the machine, or that number minus one. However, your mileage may vary - experiment with different values of `-j` and see what works best for you. It's entirely possible you don't get any speedup from multiprocessing; in that case use `-j1` to avoid overhead.
+
+Gains might be modest. As an example, a 4 min render on single core runs in ~2 min 40 seconds using 7 cores on my 8 cores laptop.
 
 ## Command line usage
 
