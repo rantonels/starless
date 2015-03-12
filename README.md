@@ -9,11 +9,20 @@ It is still in development and will be presented on my site along with [my real 
 - Full geodesic raytracing in Schwarzschild geometry
 - Predicts distortion of arbitrary objects defined implicitly
 - Alpha-blended accretion disk
+- Optional blackbody mode for accretion disk with realistic redshift (doppler + gravitational)
 - Sky distortion
 - Dust
 - Bloom postprocessing
 - Completely parallel - renders chunks of the image using numpy arrays arithmetic
+- Multithreaded (and so multicore, since numpy does not suffer from the GIL)
 - Easy debugging by saving masks and intermediate results as images
+
+## (Possible) future features
+
+- Non-stationary observers, aberration, render from inside the event horizon
+- Kerr geometry (rotating black holes with frame dragging)
+- Integration of time variable, time dependent objects (e.g. orbiting sphere with retarded time rendering) with worldtube-null geodesic intersection
+- Generic redshift framework for solid colour objects
 
 ## Dependencies
 
@@ -59,6 +68,14 @@ and wait. The rendered image will be in the `tests` folder under the name `out.p
 
 To run the full render, just omit the `-d` option. The results will still be saved in `tests`.
 
+## Multithreading
+
+The raytracer is multithreaded. It partitions the viewport in chunks, then partitions again the list of chunks to distribute them to threads. By default, 4 threads are created. This number can and should be changed with the option `-jN`. 
+
+Best results should arise when the number of threads equals the number of cores of the machine.
+
+Note that while pure python does not obtain any speed boosts from multithreading, and in fact runs slower, because of the GIL, numpy does not have this restriction, and numpy operations will not interleave and will run in parallel over different cores.
+
 ## Command line usage
 
 `tracer.py` accepts the following command line options:
@@ -72,7 +89,9 @@ To run the full render, just omit the `-d` option. The results will still be sav
 1) copying rendered data to the large final image buffer is slightly faster if it's contiguous
 2) per chunk, the raytracer performs full calculations relative to an object (disc, horizon, etc) if and only if at least one ray of it its the object. So, if chunks are actually contiguous, there is a certain probability that some of them will never hit certain objects and many computations will be skipped. Shuffled chunks almost surely hit every object in the scene.
 
-The (single) scene filename can be placed anywhere, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
+`-jN`: use N threads (tip: use N = number of cores). Default is 4.
+
+The (single) scene filename can be placed anywhere on the command string, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
 ## Writing .scene files
 
@@ -82,4 +101,4 @@ Many options have default values and can be omitted, but I make no guarantees on
 
 Some general rules:
 
-* Precision and render time are obviously massively affected by the `Iterations` and `Stepsize` options. As a rule of thumb, in `[lofi]` fix `Stepsize` to a large value, such as `0.08`, then render multiple times with `-d` progressively decreasing `Iterations`. You need to find the smallest value of `Iterations` for which no significant parts of the image are clipped. When you've fixed the `Iterations` number, decrease the step size to a desirable value (`0.02` is enough for most purposes) *and simultaneously increase *`Iterations`* by the same factor* (e.g.: halve step size, double iterations) so as to keep clipping distance **approximately fixed**. When satisfied, copy these values to the `[hifi]` section. This procedure minimizes render time.
+* Precision and render time are obviously massively affected by the `Iterations` and `Stepsize` options. As a rule of thumb, in `[lofi]` fix `Stepsize` to a large value, such as `0.08`, then render multiple times with `-d` progressively decreasing `Iterations`. You need to find the smallest value of `Iterations` for which no significant parts of the image are clipped. When you've fixed the `Iterations` number, decrease the step size to a desirable value (`0.02` is basically high-quality, `0.04` or `0.08` is enough for most purposes) *and simultaneously increase* `Iterations` *by the same factor* (e.g.: halve step size, double iterations) so as to keep clipping distance **approximately fixed**. When satisfied, copy these values to the `[hifi]` section. This procedure minimizes render time.
