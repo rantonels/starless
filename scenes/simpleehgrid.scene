@@ -1,14 +1,14 @@
 [lofi]
 
 Resolution=160,120
-Iterations=1000
-Stepsize=0.02
+Iterations=800
+Stepsize=0.03
 
 [hifi]
 
-Resolution=1024,786
-Iterations=1000
-Stepsize=0.02
+Resolution=1920,1080
+Iterations=800
+Stepsize=0.03
 
 [geometry]
 
@@ -22,7 +22,9 @@ Upvector=-0.,1.,0.
 Horizongrid=1
 Disktexture=none
 Skytexture=texture
-Skydiskratio=1.5
+Skydiskratio=5.0
 Fogdo=0
 Fogmult=0.2
-Blurdo=0
+Blurdo=1
+Airy_bloom=1
+Airy_radius=1.
