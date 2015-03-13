@@ -605,7 +605,8 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
             # FOG
 
             if FOGDO and (it%FOGSKIP == 0):
-                fogint = np.clip(FOGMULT * FOGSKIP * STEP / sqrnorm(point),0.0,1.0)
+                phsphtaper = np.clip(0.8*(pointsqr - 1.0),0.,1.0)
+                fogint = np.clip(FOGMULT * FOGSKIP * STEP / pointsqr,0.0,1.0) * phsphtaper
                 fogcol = ones3
 
                 object_colour = blendcolors(fogcol,fogint,object_colour,object_alpha)
