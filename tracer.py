@@ -753,7 +753,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
 
             if mask_horizon.any() :
 
-                lambdaa = ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
+                lambdaa =  1. - ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
                 colpoint = lambdaa * point + (1-lambdaa)*oldpoint
 
                 if HORIZON_GRID:
