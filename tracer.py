@@ -87,6 +87,8 @@ defaults = {
             "Normalize":"-1",
             "Blurdo":"1",
             "Bloomcut":"2.0",
+            "Airy_bloom":"1",
+            "Airy_radius":"1.",
             "Iterations":"1000",
             "Stepsize":"0.02",
             "Cameraposition":"0.,1.,-10",
@@ -166,6 +168,8 @@ try:
     SKYDISK_RATIO = float(cfp.get('materials','Skydiskratio'))
     FOGDO = int(cfp.get('materials','Fogdo'))
     BLURDO = int(cfp.get('materials','Blurdo'))
+    AIRY_BLOOM = int(cfp.get('materials','Airy_bloom'))
+    AIRY_RADIUS = float(cfp.get('materials','Airy_radius'))
     FOGMULT = float(cfp.get('materials','Fogmult'))
 
     #perform linear rgb->srgb conversion
@@ -871,21 +875,13 @@ print "Total raytracing time: %s"%(str(datetime.timedelta(seconds= (time.time()-
 
 print "Postprocessing..."
 
-#bloom
 
-if BLURDO:
-    hipass = np.outer(sqrnorm(total_colour_buffer_preproc) > BLOOMCUT, np.array([1.,1.,1.])) * total_colour_buffer_preproc
-#    blurd = np.copy(hipass)
-#
-#    blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
-#
-#    for i in range(3):
-#        print "- gaussian blur pass %d..."%i
-#        blurd = ndim.gaussian_filter(blurd,int(20./1024.*RESOLUTION[0]))
-#
-#    blurd = blurd.reshape((numPixels,3))
-#
-#
+
+# airy bloom
+if AIRY_BLOOM:
+
+    print "-computing Airy disk bloom..."
+    
     #blending bloom
 
     #colour = total_colour_buffer_preproc + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
@@ -896,16 +892,45 @@ if BLURDO:
     colour_bloomd = colour_bloomd.reshape((RESOLUTION[1],RESOLUTION[0],3))
 
 
-    colour_bloomd = bloom.airy_convolve(colour_bloomd,0.5/1024*RESOLUTION[0])
+    # the float constant is 1.22 * 650nm / (4 mm), the typical diffractive resolution
+    # of the human eye for red light. It's in radians, so we rescale using field of view.
+    radd = 0.00019825 * RESOLUTION[0] / np.arctan(TANFOV)
+
+    # the user is allowed to rescale the resolution, though
+    radd*=AIRY_RADIUS 
+
+    print "--(radius: %f)"%radd
+
+    colour_bloomd = bloom.airy_convolve(colour_bloomd,radd)
 
     colour_bloomd = colour_bloomd.reshape((numPixels,3))
 
 
-    colour = colour_bloomd
+    colour_pb = colour_bloomd
 
 else:
-    colour = total_colour_buffer_preproc
+    colour_pb = total_colour_buffer_preproc
 
+
+# wide gaussian (lighting dust effect)
+
+if BLURDO:
+
+    print "-computing wide gaussian blur..."
+    
+    #hipass = np.outer(sqrnorm(total_colour_buffer_preproc) > BLOOMCUT, np.array([1.,1.,1.])) * total_colour_buffer_preproc
+    blurd = np.copy(total_colour_buffer_preproc)
+
+    blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
+
+    for i in range(2):
+        print "- gaussian blur pass %d..."%i
+        blurd = ndim.gaussian_filter(blurd,int(0.05*RESOLUTION[0]))
+
+    blurd = blurd.reshape((numPixels,3))
+    colour = colour_pb + 0.2 * blurd
+else:
+    colour = colour_pb
 
 
 
@@ -914,6 +939,8 @@ if NORMALIZE > 0:
     print "- normalizing..."
     colour *= 1 / (NORMALIZE * np.amax(colour.flatten()) )
 
+
+#wait.... gain is completely ignored?
 #gain
 print "- gain..."
 total_colour_buffer_preproc *= GAIN
@@ -929,6 +956,4 @@ sys.stdout.flush()
 saveToImg(colour,"tests/out.png")
 saveToImg(total_colour_buffer_preproc,"tests/preproc.png")
 if BLURDO:
-    saveToImg(hipass,"tests/hipass.png")
-
-
+    saveToImg(colour_pb,"tests/postbloom.png")

@@ -94,8 +94,28 @@ Fogmult=0.02
 
 #Postprocessing options
 
-#Bloom threshold. This is actually expressed as a squared norm of the colour (r*r + g*g + b*b)
-#take note that the blackbody mode uses HDR and squared colours > 3.0 are possible
+#image done until now is called 'preproc.png'
+
+#Bloom (Airy convolution)
+#a 3-channel convolution with an Airy disk kernel is performed
+#the standard optical resolution is computed assuming the human eye's aperture
+
+#Whether to perform Airy disk bloom
+Airy_bloom=1
+#this parameter rescales the resolution (1.0 = standard size)
+Airy_radius=1.0
+
+
+#image done until now is called 'postbloom.png'
+
+
+#Wide gaussian (lit up dust effect)
+#a convolution pass with a pretty wide gaussian which is add-blended
+#simulates dust lit up by bright objects (very scenographic)
+Blurdo=1
+
+
+#Deprecated option
 Bloomcut=0.8
 
 #Gain
@@ -105,3 +125,5 @@ Gain=1
 #	-1:			don't normalize
 #	any positive x:		make it so that x times the brightest pixel channel is sent to 1
 Normalize=-1
+
+
