@@ -90,14 +90,18 @@ Gains might be modest. As an example, a 4 min render on single core runs in ~2 m
 
 `-d`: run test (render with [lofi] settings)
 
+`-o` or `--no-bs`: a shortcut for the `--no-display`, `--no-shuffle`, `--no-graph` options. Disables all gadgets to concentrate on performance. Useful for heavy renders.
+
 `--no-display`: do not open matplotlib preview window. This is a **huge improvement** in speed for large images.
 
-`--no-shuffle`: do not shuffle pixels before chunking. This, in practice, means that instead of being rendered as a gradually densening cloud, the image is raytraced progressively starting from the top. The end result is identical, but with shuffling the preview window might give an idea of the render sooner. However, **disabling shuffling** provides a nice speed improvement for larger images, because:
+`--no-shuffle`: do not shuffle pixels before chunking. This, in practice, means that instead of being rendered as a gradually densening cloud, the image is raytraced progressively in linear chunks (though the order of the chunks themselves is still shuffled). The end result is identical, but with shuffling the preview window might give an idea of the render sooner. However, **disabling shuffling** provides a nice speed improvement for larger images, because:
 
-1) copying rendered data to the large final image buffer is slightly faster if it's contiguous
+1) copying rendered data to the large final image buffer is much faster if it's contiguous
 2) per chunk, the raytracer performs full calculations relative to an object (disc, horizon, etc) if and only if at least one ray of it its the object. So, if chunks are actually contiguous, there is a certain probability that some of them will never hit certain objects and many computations will be skipped. Shuffled chunks almost surely hit every object in the scene.
 
 `-jN`: use N processes (tip: use N = number of cores). Default is 4.
+
+`--no-graph`: By default Starless generates a matplotlib schematic graph, `graph.png`, of the sizes and position of the black hole, the accretion disc and the camera projected on the z-x plane (this is still a work in progress, and not complete). This option disables the generation of the graph.
 
 The (single) scene filename can be placed anywhere on the command string, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
