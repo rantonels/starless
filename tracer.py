@@ -12,6 +12,7 @@ import multiprocessing as multi
 import ctypes
 
 import blackbody as bb
+import bloom
 
 import gc
 
@@ -874,19 +875,33 @@ print "Postprocessing..."
 
 if BLURDO:
     hipass = np.outer(sqrnorm(total_colour_buffer_preproc) > BLOOMCUT, np.array([1.,1.,1.])) * total_colour_buffer_preproc
-    blurd = np.copy(hipass)
-
-    blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
-
-    for i in range(3):
-        print "- gaussian blur pass %d..."%i
-        blurd = ndim.gaussian_filter(blurd,int(20./1024.*RESOLUTION[0]))
-
-    blurd = blurd.reshape((numPixels,3))
-
-
+#    blurd = np.copy(hipass)
+#
+#    blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
+#
+#    for i in range(3):
+#        print "- gaussian blur pass %d..."%i
+#        blurd = ndim.gaussian_filter(blurd,int(20./1024.*RESOLUTION[0]))
+#
+#    blurd = blurd.reshape((numPixels,3))
+#
+#
     #blending bloom
-    colour = total_colour_buffer_preproc + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
+
+    #colour = total_colour_buffer_preproc + 0.3*blurd #0.2*dbg_grid + 0.8*dbg_finvec
+    
+    #airy disk bloom
+
+    colour_bloomd = np.copy(total_colour_buffer_preproc)
+    colour_bloomd = colour_bloomd.reshape((RESOLUTION[1],RESOLUTION[0],3))
+
+
+    colour_bloomd = bloom.airy_convolve(colour_bloomd,0.5/1024*RESOLUTION[0])
+
+    colour_bloomd = colour_bloomd.reshape((numPixels,3))
+
+
+    colour = colour_bloomd
 
 else:
     colour = total_colour_buffer_preproc

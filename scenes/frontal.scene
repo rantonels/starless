@@ -25,6 +25,7 @@ Skytexture=texture
 Skydiskratio=0.05
 Fogdo=1
 Fogmult=0.02
+Blurdo=1
 
 Diskinner=1.8
 Diskouter=6.
