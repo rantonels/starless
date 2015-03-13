@@ -29,16 +29,27 @@ DISABLE_SHUFFLING = 0
 
 NTHREADS = 4
 
+DRAWGRAPH = True
+
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
     if arg == '-d':
         LOFI = True
+        continue
+    if (arg == '--no-graph'):
+        DRAWGRAPH = False
         continue
     if arg == '--no-display':
         DISABLE_DISPLAY = 1
         continue
     if arg == '--no-shuffle':
         DISABLE_SHUFFLING = 1
+        continue
+
+    if (arg == '-o') or (arg == '--no-bs'):
+        DRAWGRAPH = False
+        DISABLE_DISPLAY = True
+        DISABLE_SHUFFLING = True
         continue
 
     if arg[0:2] == "-j":
@@ -172,6 +183,44 @@ DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
 
 
+#GRAPH
+if DRAWGRAPH:
+    print "Drawing schematic graph..."
+    g_diskout       = plt.Circle((0,0),DISKOUTER, fc='0.75')
+    g_diskin        = plt.Circle((0,0),DISKINNER, fc='white')
+
+    g_photon        = plt.Circle((0,0),1.5,ec='y',fc='none')
+    g_horizon       = plt.Circle((0,0),1,color='black')
+    g_cameraball    = plt.Circle((CAMERA_POS[2],CAMERA_POS[0]),0.2,color='black')
+
+    figure = plt.gcf()
+
+    ax = plt.gca()
+    
+    ax.cla()
+    
+    gscale = 1.1*np.linalg.norm(CAMERA_POS)
+    ax.set_xlim((-gscale,gscale))
+    ax.set_ylim((-gscale,gscale))
+    ax.set_aspect('equal')
+
+    l = 100
+
+
+    ax.plot([CAMERA_POS[2],LOOKAT[2]] , [CAMERA_POS[0],LOOKAT[0]] , color='0.05', linestyle='-')
+    
+ 
+    figure.gca().add_artist(g_diskout)
+    figure.gca().add_artist(g_diskin)
+    figure.gca().add_artist(g_horizon)
+    figure.gca().add_artist(g_photon)
+    figure.gca().add_artist(g_cameraball)
+
+
+    print "Saving diagram..."
+    figure.savefig('tests/graph.png')
+
+    ax.cla()
 
 #ensuring existence of tests directory
 if not os.path.exists("tests"):
