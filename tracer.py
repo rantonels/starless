@@ -464,7 +464,7 @@ schedules = []
 
 #from http://stackoverflow.com/questions/2659900/python-slicing-a-list-into-n-nearly-equal-length-partitions
 q,r = divmod(NCHUNKS, NTHREADS)
-indices = [q*i + min(i,r) for i in xrange(NTHREADS+1)]
+indices = [q*i + min(i,r) for i in range(NTHREADS+1)]
 
 for i in range(NTHREADS):
     schedules.append(chunks[ indices[i]:indices[i+1] ]) 
