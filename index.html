@@ -272,12 +272,7 @@
 
 				That's easy enough. As a check, we note that relative intensity quickly drops to zero when T goes to zero, and is only linear in T as T goes to infinity. </p>
 
-				<p>So here's basically what you would see, when standing above an hypothetical 10 000 K black hole accretion disc, with one hell of a filter:</p>
-
-				<img src="pics/bb.jpg" class="center-block img-responsive img-mrg">
-
-				<p>(this does not include yet the effects of redshift). As you can see, the brightest part of the disc is completely white, because it saturates the colour channels. If I scale down those channels to fit in the 0.0-1.0 range, the outer parts of the disk become faint or black. The growth in brightness is too large for us to appreciate. I've tried to depict it in postprocessing through a bloom effect to make really bright parts bleed instead of just clip, but it's hardly sufficient.</p>
-
+				
 				<h3>Redshift</h3>
 
 				<p>I discusses the orbital speeds in the Schwarzschild geometry in the explanation for the live applet. To compute redshift, we use the special-relativistic redshift formula:
@@ -296,14 +291,20 @@
 				
 				<p>We also neglect redshift from observer motion, because our observer is Schwarzschild-stationary. The final result is this:<p>
 
-				<img src="pics/bb_redshift.jpg" class="center-block img-responsive img-mrg">
+				<img src="pics/bab_yesint.jpg" class="center-block img-responsive img-mrg">
+				
+				<p>As you can see, most of the disc is completely white, because it saturates the colour channels. If I scale down those channels to fit in the 0.0-1.0 range, the outer parts of the disk become faint or black. The growth in brightness is too large for us to appreciate. I've tried to depict it in postprocessing through a bloom effect to make really bright parts bleed instead of just clip, but it's hardly sufficient.</p>
 
-				<p>This is at a smaller resolution because it takes <em>so long</em> to render on my laptop (square roots are bad, kids).</p>
+				<p>Quite a confusing picture. Here's a picture with the intensity ignored, so you can appreciate the colours:</p>
+
+				<img src="pics/bab_noint.jpg" class="center-block img-responsive img-mrg">
+
+				<p>These are at a smaller resolution because they take <em>so long</em> to render on my laptop (square roots are bad, kids).</p>
 				<p>Anyways, it looks thousands of time less scenographic than the other renders (mostly because the inner edge of the disk is already far away enough from the EH that lensing looks quite underwhelming), but at least it's <em>accurate</em>, if you managed to find a 10 000 K black hole and some really good sunglasses, that is.</p>
 
 				<p>Another shot from a closer distance. I tweaked saturation unnaturally up so you can tell better:</p>
 
-				<img src="pics/inside_bb.jpg" class="center-block img-responsive img-mrg">	
+				<img src="pics/bab_front.jpg" class="center-block img-responsive img-mrg">	
 
 
 			</div>
