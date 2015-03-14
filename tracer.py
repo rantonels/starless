@@ -67,7 +67,7 @@ for arg in sys.argv[1:]:
         continue
 
     if arg[0:2] == "-r":
-        RESOLUTION = tuple(map(lambda x: int(x),arg[2:].split('x')))
+        RESOLUTION = [int(x) for x in arg[2:].split('x')]
         OVERRIDE_RES = True
         if (len(RESOLUTION) != 2):
             print '''error: resolution "%s" unreadable'''%arg[2:]
@@ -135,7 +135,7 @@ METHOD = METH_RK4
 #must rewrite
 try:
     if not OVERRIDE_RES:
-        RESOLUTION = map(lambda x:int(x),cfp.get('lofi','Resolution').split(','))
+        RESOLUTION = [int(x) for x in cfp.get('lofi','Resolution').split(',')]
     NITER = int(cfp.get('lofi','Iterations'))
     STEP = float(cfp.get('lofi','Stepsize'))
 except KeyError,ConfigParser.NoSectionError:
@@ -146,17 +146,17 @@ except KeyError,ConfigParser.NoSectionError:
 if not LOFI:
     try:
         if not OVERRIDE_RES:
-            RESOLUTION = map(lambda x:int(x),cfp.get('hifi','Resolution').split(','))
+            RESOLUTION = [int(x) for x in cfp.get('hifi','Resolution').split(',')]
         NITER = int(cfp.get('hifi','Iterations'))
         STEP = float(cfp.get('hifi','Stepsize'))
     except KeyError,ConfigParser.NoSectionError:
         print "no data in hifi section. Using lofi/defaults."
 
 try:
-    CAMERA_POS = map(lambda x:float(x),cfp.get('geometry','Cameraposition').split(','))
+    CAMERA_POS = [float(x) for x in cfp.get('geometry','Cameraposition').split(',')]
     TANFOV = float(cfp.get('geometry','Fieldofview'))
-    LOOKAT = np.array(map(lambda x:float(x),cfp.get('geometry','Lookat').split(',')))
-    UPVEC = np.array(map(lambda x:float(x),cfp.get('geometry','Upvector').split(',')))
+    LOOKAT = np.array([float(x) for x in cfp.get('geometry','Lookat').split(',')])
+    UPVEC = np.array([float(x) for x in cfp.get('geometry','Upvector').split(',')])
     DISTORT = int(cfp.get('geometry','Distort'))
     DISKINNER = float(cfp.get('geometry','Diskinner'))
     DISKOUTER = float(cfp.get('geometry','Diskouter'))
