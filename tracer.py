@@ -207,6 +207,9 @@ CAMERA_POS = np.array(CAMERA_POS)
 DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
 
+#ensuring existence of tests directory
+if not os.path.exists("tests"):
+    os.makedirs("tests")
 
 #GRAPH
 if DRAWGRAPH:
@@ -246,11 +249,6 @@ if DRAWGRAPH:
     figure.savefig('tests/graph.png')
 
     ax.cla()
-
-#ensuring existence of tests directory
-if not os.path.exists("tests"):
-    os.makedirs("tests")
-
 
 # these need to be here
 # convert from linear rgb to srgb
