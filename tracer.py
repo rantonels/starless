@@ -114,7 +114,8 @@ defaults = {
             "Horizongrid":"1",
             "Redshift":"1",
             "sRGBOut":"1",
-            "sRGBIn":"1"
+            "Diskintensitydo":"1",
+            "sRGBIn":"1",
             }
 
 cfp = ConfigParser.ConfigParser(defaults)
