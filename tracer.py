@@ -127,9 +127,6 @@ FOGSKIP = 1
 
 METHOD = METH_RK4
 
-#this is never catched by except. WHY?
-ex = ConfigParser.NoSectionError
-
 
 
 #this section works, but only if the .scene file is good
@@ -140,7 +137,7 @@ try:
         RESOLUTION = map(lambda x:int(x),cfp.get('lofi','Resolution').split(','))
     NITER = int(cfp.get('lofi','Iterations'))
     STEP = float(cfp.get('lofi','Stepsize'))
-except KeyError,ex:
+except KeyError,ConfigParser.NoSectionError:
     print "error reading scene file: insufficient data in lofi section"
     print "using defaults."
 
@@ -151,7 +148,7 @@ if not LOFI:
             RESOLUTION = map(lambda x:int(x),cfp.get('hifi','Resolution').split(','))
         NITER = int(cfp.get('hifi','Iterations'))
         STEP = float(cfp.get('hifi','Stepsize'))
-    except KeyError,ex:
+    except KeyError,ConfigParser.NoSectionError:
         print "no data in hifi section. Using lofi/defaults."
 
 try:
@@ -176,7 +173,7 @@ try:
 
 
 
-except KeyError:
+except KeyError,ConfigParser.NoSectionError:
     print "error reading scene file: insufficient data in geometry section"
     print "using defaults."
 
@@ -195,7 +192,7 @@ try:
     #perform linear rgb->srgb conversion
     SRGBOUT = int(cfp.get('materials','sRGBOut'))
     SRGBIN = int(cfp.get('materials','sRGBIn'))
-except KeyError:
+except KeyError,ConfigParser.NoSectionError:
     print "error reading scene file: insufficient data in materials section"
     print "using defaults."
 
