@@ -1,4 +1,4 @@
-# [Python Black Hole Raytracer](http://spiro.fisica.unipd.it/~antonell/starless/)
+# [Python Black Hole Raytracer](http://rantonels.github.io/starless)
 
 Starless is a CPU black hole raytracer in numpy suitable for both informative diagrams and decent wallpaper material.
 
