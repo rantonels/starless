@@ -5,8 +5,11 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.ndimage as ndim
 import scipy.misc as spm
-import random,sys,time,os
+import random, sys, time, os
 import datetime
+
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
 import multiprocessing as multi
 import ctypes
@@ -15,6 +18,12 @@ import blackbody as bb
 import bloom
 
 import gc
+
+#importing scene
+try:
+    import ConfigParser as configparser
+except ImportError: # we're on python3
+    import configparser
 
 
 #enums
@@ -70,13 +79,13 @@ for arg in sys.argv[1:]:
         RESOLUTION = [int(x) for x in arg[2:].split('x')]
         OVERRIDE_RES = True
         if (len(RESOLUTION) != 2):
-            print '''error: resolution "%s" unreadable'''%arg[2:]
-            print "please format resolution correctly (e.g.: -r640x480)"
+            logging.debug('''error: resolution "%s" unreadable''', arg[2:])
+            logging.debug("please format resolution correctly (e.g.: -r640x480)")
             exit()
         continue
 
     if arg[0] == '-':
-        print "unrecognized option: %s"%arg
+        logging.debug("unrecognized option: %s", arg)
         exit()
 
     SCENE_FNAME = arg
@@ -84,12 +93,9 @@ for arg in sys.argv[1:]:
 
 
 if not os.path.isfile(SCENE_FNAME):
-    print "scene file \"%s\" does not exist"%SCENE_FNAME
+    logging.debug("scene file \"%s\" does not exist", SCENE_FNAME)
     sys.exit(1)
 
-
-#importing scene
-import ConfigParser
 
 defaults = {
             "Distort":"1",
@@ -118,8 +124,8 @@ defaults = {
             "sRGBIn":"1",
             }
 
-cfp = ConfigParser.ConfigParser(defaults)
-print "Reading scene %s..."%SCENE_FNAME
+cfp = configparser.ConfigParser(defaults)
+logging.debug("Reading scene %s...", SCENE_FNAME)
 cfp.read(SCENE_FNAME)
 
 
@@ -138,9 +144,9 @@ try:
         RESOLUTION = [int(x) for x in cfp.get('lofi','Resolution').split(',')]
     NITER = int(cfp.get('lofi','Iterations'))
     STEP = float(cfp.get('lofi','Stepsize'))
-except KeyError,ConfigParser.NoSectionError:
-    print "error reading scene file: insufficient data in lofi section"
-    print "using defaults."
+except (KeyError, configparser.NoSectionError):
+    logging.debug("error reading scene file: insufficient data in lofi section")
+    logging.debug("using defaults.")
 
 
 if not LOFI:
@@ -149,8 +155,8 @@ if not LOFI:
             RESOLUTION = [int(x) for x in cfp.get('hifi','Resolution').split(',')]
         NITER = int(cfp.get('hifi','Iterations'))
         STEP = float(cfp.get('hifi','Stepsize'))
-    except KeyError,ConfigParser.NoSectionError:
-        print "no data in hifi section. Using lofi/defaults."
+    except (KeyError, configparser.NoSectionError):
+        logging.debug("no data in hifi section. Using lofi/defaults.")
 
 try:
     CAMERA_POS = [float(x) for x in cfp.get('geometry','Cameraposition').split(',')]
@@ -174,9 +180,9 @@ try:
 
 
 
-except KeyError,ConfigParser.NoSectionError:
-    print "error reading scene file: insufficient data in geometry section"
-    print "using defaults."
+except (KeyError, configparser.NoSectionError):
+    logging.debug("error reading scene file: insufficient data in geometry section")
+    logging.debug("using defaults.")
 
 
 try:
@@ -193,12 +199,12 @@ try:
     #perform linear rgb->srgb conversion
     SRGBOUT = int(cfp.get('materials','sRGBOut'))
     SRGBIN = int(cfp.get('materials','sRGBIn'))
-except KeyError,ConfigParser.NoSectionError:
-    print "error reading scene file: insufficient data in materials section"
-    print "using defaults."
+except (KeyError, configparser.NoSectionError):
+    logging.debug("error reading scene file: insufficient data in materials section")
+    logging.debug("using defaults.")
 
 
-print "%dx%d"%(RESOLUTION[0],RESOLUTION[1])
+logging.debug("%dx%d", RESOLUTION[0], RESOLUTION[1])
 
 #just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
@@ -213,7 +219,7 @@ if not os.path.exists("tests"):
 
 #GRAPH
 if DRAWGRAPH:
-    print "Drawing schematic graph..."
+    logging.debug("Drawing schematic graph...")
     g_diskout       = plt.Circle((0,0),DISKOUTER, fc='0.75')
     g_diskin        = plt.Circle((0,0),DISKINNER, fc='white')
 
@@ -245,7 +251,7 @@ if DRAWGRAPH:
     figure.gca().add_artist(g_cameraball)
 
 
-    print "Saving diagram..."
+    logging.debug("Saving diagram...")
     figure.savefig('tests/graph.png')
 
     ax.cla()
@@ -253,7 +259,7 @@ if DRAWGRAPH:
 # these need to be here
 # convert from linear rgb to srgb
 def rgbtosrgb(arr):
-    print "RGB -> sRGB..."
+    logging.debug("RGB -> sRGB...")
     #see https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
     mask = arr > 0.0031308
     arr[mask] **= 1/2.4
@@ -264,7 +270,7 @@ def rgbtosrgb(arr):
 
 # convert from srgb to linear rgb
 def srgbtorgb(arr):
-    print "sRGB -> RGB..."
+    logging.debug("sRGB -> RGB...")
     mask = arr > 0.04045
     arr[mask] += 0.055
     arr[mask] /= 1.055
@@ -272,7 +278,7 @@ def srgbtorgb(arr):
     arr[-mask] /= 12.92
 
 
-print "Loading textures..."
+logging.debug("Loading textures...")
 if SKY_TEXTURE == 'texture':
     texarr_sky = spm.imread('textures/bgedit.jpg')
     # must convert to float here so we can work in linear colour
@@ -283,7 +289,7 @@ if SKY_TEXTURE == 'texture':
         srgbtorgb(texarr_sky)
     if not LOFI:
         #   maybe doing this manually and then loading is better.
-        print "(zooming sky texture...)"
+        logging.debug("(zooming sky texture...)")
         texarr_sky = spm.imresize(texarr_sky,2.0,interp='bicubic')
         # imresize converts back to uint8 for whatever reason
         texarr_sky = texarr_sky.astype(float)
@@ -315,7 +321,7 @@ def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
 
 
 
-print "Computing rotation matrix..."
+logging.debug("Computing rotation matrix...")
 sys.stdout.flush()
 
 # this is just standard CGI vector algebra
@@ -341,7 +347,7 @@ pixelindices = np.arange(0,RESOLUTION[0]*RESOLUTION[1],1)
 #total number of pixels
 numPixels = pixelindices.shape[0]
 
-print "Generated %d pixel flattened array."%numPixels
+logging.debug("Generated %d pixel flattened array.", numPixels)
 sys.stdout.flush()
 
 #useful constant arrays
@@ -400,7 +406,7 @@ def blendalpha(balpha,aalpha):
 
 
 def saveToImg(arr,fname):
-    print " - saving %s..."%fname
+    logging.debug(" - saving %s...", fname)
     #copy
     imgout = np.array(arr)
     #clip
@@ -438,7 +444,7 @@ chunks = np.array_split(pixelindices,numPixels/CHUNKSIZE + 1)
 
 NCHUNKS = len(chunks)
 
-print "Split into %d chunks of %d pixels each"%(NCHUNKS,chunks[0].shape[0])
+logging.debug("Split into %d chunks of %d pixels each", NCHUNKS, chunks[0].shape[0])
 
 total_colour_buffer_preproc_shared = multi.Array(ctypes.c_float, numPixels * 3)
 total_colour_buffer_preproc = tonumpyarray(total_colour_buffer_preproc_shared)
@@ -446,7 +452,7 @@ total_colour_buffer_preproc = tonumpyarray(total_colour_buffer_preproc_shared)
 #open preview window
 
 if not DISABLE_DISPLAY:
-    print "Opening display..."
+    logging.debug("Opening display...")
 
     plt.ion()
     plt.imshow(total_colour_buffer_preproc.reshape((RESOLUTION[1],RESOLUTION[0],3)))
@@ -471,7 +477,7 @@ for i in range(NTHREADS):
 
 
 
-print "Split list into %d schedules with %s chunks each"%(NTHREADS, ", ".join([str(len(s)) for s in schedules]) )
+logging.debug("Split list into %d schedules with %s chunks each", NTHREADS, ", ".join([str(len(s)) for s in schedules]) )
 
 
 
@@ -508,7 +514,7 @@ class Outputter:
         outst = ""
         for i in range(-1,NTHREADS):
             outst += self.name(i) + "] " + self.message[i] + "\n"
-        print outst, "\033[F"*(NTHREADS+1) + '\r',
+        logging.debug("%s%s\r", outst, "\033[F"*(NTHREADS+1))
         sys.stdout.flush()
 
     def parsemessages(self):
@@ -527,7 +533,7 @@ class Outputter:
 
     def __del__(self):
         try:
-            print '\n'*(NTHREADS+1)
+            logging.debug('\n'*(NTHREADS+1))
         except:
             pass
 
@@ -856,7 +862,7 @@ for i in range(NTHREADS):
     p = multi.Process(target=raytrace_schedule,args=(i,schedules[i],total_colour_buffer_preproc_shared,output.queue))
     process_list.append(p)
 
-print "Starting threads..."
+logging.debug("Starting threads...")
 
 for proc in process_list:
     proc.start()
@@ -890,22 +896,22 @@ except KeyboardInterrupt:
 del output
 
 
-print "Done tracing."
+logging.debug("Done tracing.")
 
-print "Total raytracing time: %s"%(str(datetime.timedelta(seconds= (time.time()-start_time))) )
+logging.debug("Total raytracing time: %s", str(datetime.timedelta(seconds= (time.time()-start_time))) )
 
 
-print "Postprocessing..."
+logging.debug("Postprocessing...")
 
 #gain
-print "- gain..."
+logging.debug("- gain...")
 total_colour_buffer_preproc *= GAIN
 
 
 # airy bloom
 if AIRY_BLOOM:
 
-    print "-computing Airy disk bloom..."
+    logging.debug("-computing Airy disk bloom...")
     
     #blending bloom
 
@@ -936,7 +942,7 @@ if AIRY_BLOOM:
 
     kern_radius = 25 * np.power( np.amax(colour_bloomd) / 5.0 , 1./3.) * RESOLUTION[0]/1920.
 
-    print "--(radius: %3f, kernel pixel radius: %3f, maximum source brightness: %3f)"%(radd,kern_radius,mxint)
+    logging.debug("--(radius: %3f, kernel pixel radius: %3f, maximum source brightness: %3f)", radd,kern_radius,mxint)
     
     colour_bloomd = bloom.airy_convolve(colour_bloomd,radd)
  
@@ -952,7 +958,7 @@ else:
 
 if BLURDO:
 
-    print "-computing wide gaussian blur..."
+    logging.debug("-computing wide gaussian blur...")
     
     #hipass = np.outer(sqrnorm(total_colour_buffer_preproc) > BLOOMCUT, np.array([1.,1.,1.])) * total_colour_buffer_preproc
     blurd = np.copy(total_colour_buffer_preproc)
@@ -960,7 +966,7 @@ if BLURDO:
     blurd = blurd.reshape((RESOLUTION[1],RESOLUTION[0],3))
 
     for i in range(2):
-        print "- gaussian blur pass %d..."%i
+        logging.debug("- gaussian blur pass %d...", i)
         blurd = ndim.gaussian_filter(blurd,int(0.05*RESOLUTION[0]))
 
     blurd = blurd.reshape((numPixels,3))
@@ -972,7 +978,7 @@ else:
 
 #normalization
 if NORMALIZE > 0:
-    print "- normalizing..."
+    logging.debug("- normalizing...")
     colour *= 1 / (NORMALIZE * np.amax(colour.flatten()) )
 
 
@@ -982,7 +988,7 @@ if NORMALIZE > 0:
 colour = np.clip(colour,0.,1.)
 
 
-print "Conversion to image and saving..."
+logging.debug("Conversion to image and saving...")
 sys.stdout.flush()
 
 saveToImg(colour,"tests/out.png")
