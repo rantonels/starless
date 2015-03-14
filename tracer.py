@@ -32,6 +32,8 @@ NTHREADS = 4
 
 DRAWGRAPH = True
 
+OVERRIDE_RES = False
+
 SCENE_FNAME = 'scenes/default.scene'
 for arg in sys.argv[1:]:
     if arg == '-d':
@@ -55,6 +57,15 @@ for arg in sys.argv[1:]:
 
     if arg[0:2] == "-j":
         NTHREADS = int(arg[2:])
+        continue
+
+    if arg[0:2] == "-r":
+        RESOLUTION = tuple(map(lambda x: int(x),arg[2:].split('x')))
+        OVERRIDE_RES = True
+        if (len(RESOLUTION) != 2):
+            print '''error: resolution "%s" unreadable'''%arg[2:]
+            print "please format resolution correctly (e.g.: -r640x480)"
+            exit()
         continue
 
     if arg[0] == '-':
@@ -119,7 +130,8 @@ ex = ConfigParser.NoSectionError
 #if there's anything wrong, it's a trainwreck
 #must rewrite
 try:
-    RESOLUTION = map(lambda x:int(x),cfp.get('lofi','Resolution').split(','))
+    if not OVERRIDE_RES:
+        RESOLUTION = map(lambda x:int(x),cfp.get('lofi','Resolution').split(','))
     NITER = int(cfp.get('lofi','Iterations'))
     STEP = float(cfp.get('lofi','Stepsize'))
 except KeyError,ex:
@@ -129,7 +141,8 @@ except KeyError,ex:
 
 if not LOFI:
     try:
-        RESOLUTION = map(lambda x:int(x),cfp.get('hifi','Resolution').split(','))
+        if not OVERRIDE_RES:
+            RESOLUTION = map(lambda x:int(x),cfp.get('hifi','Resolution').split(','))
         NITER = int(cfp.get('hifi','Iterations'))
         STEP = float(cfp.get('hifi','Stepsize'))
     except KeyError,ex:
@@ -179,6 +192,8 @@ except KeyError:
     print "error reading scene file: insufficient data in materials section"
     print "using defaults."
 
+
+print "%dx%d"%(RESOLUTION[0],RESOLUTION[1])
 
 #just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
@@ -899,15 +914,25 @@ if AIRY_BLOOM:
     # the user is allowed to rescale the resolution, though
     radd*=AIRY_RADIUS 
 
-    print "--(radius: %f)"%radd
+    # the pixel size of the kernel:
+    # 25 pixels radius is ok for 5.0 bright source pixel at 1920x1080, so...
+    # remembering that airy ~ 1/x^3, so intensity/x^3 = threshold => x = (intensity/threshold)^1/3
+    # so it scales with 
+    # - the cube root of maximum intensity
+    # - linear in resolution
 
+    mxint = np.amax(colour_bloomd)
+
+    kern_radius = 25 * np.power( np.amax(colour_bloomd) / 5.0 , 1./3.) * RESOLUTION[0]/1920.
+
+    print "--(radius: %3f, kernel pixel radius: %3f, maximum source brightness: %3f)"%(radd,kern_radius,mxint)
+    
     colour_bloomd = bloom.airy_convolve(colour_bloomd,radd)
-
+ 
     colour_bloomd = colour_bloomd.reshape((numPixels,3))
 
 
     colour_pb = colour_bloomd
-
 else:
     colour_pb = total_colour_buffer_preproc
 
