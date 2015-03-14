@@ -12,7 +12,7 @@ It is still in development and will be presented on my site along with [my real 
 - Optional blackbody mode for accretion disk with realistic redshift (doppler + gravitational)
 - Sky distortion
 - Dust
-- Bloom postprocessing
+- Bloom postprocessing by Airy disk convolution with spectral dependence
 - Completely parallel - renders chunks of the image using numpy arrays arithmetic
 - Multicore (with multiprocessing)
 - Easy debugging by saving masks and intermediate results as images
