@@ -103,6 +103,8 @@ Gains might be modest. As an example, a 4 min render on single core runs in ~2 m
 
 `--no-graph`: By default Starless generates a matplotlib schematic graph, `graph.png`, of the sizes and position of the black hole, the accretion disc and the camera projected on the z-x plane (this is still a work in progress, and not complete). This option disables the generation of the graph.
 
+`-rXxY`: set resolution manually (overriding .scene file directives). Format resolution as `-r640x480`.
+
 The (single) scene filename can be placed anywhere on the command string, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
 ## Writing .scene files
