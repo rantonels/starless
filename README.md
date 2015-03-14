@@ -105,6 +105,8 @@ Gains might be modest. As an example, a 4 min render on single core runs in ~2 m
 
 `-rXxY`: set resolution manually (overriding .scene file directives). Format resolution as `-r640x480`.
 
+`-cN`: set size of chunks in pixels (default: 9000). The only two settings you should try are `-c2000` and `-c9000`. Smaller chunk size has more python overhead; but more chance of fitting in smaller and thus faster caches.
+
 The (single) scene filename can be placed anywhere on the command string, and is recognized as such if it doesn't start with the `-` character. If omitted, `scenes/default.scene` is rendered.
 
 ## Writing .scene files

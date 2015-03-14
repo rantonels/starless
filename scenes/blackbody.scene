@@ -1,13 +1,13 @@
 [lofi]
 
 Resolution=160,120
-Iterations=400
+Iterations=700
 Stepsize=0.08
 
 [hifi]
 
 Resolution=1024,786
-Iterations=400
+Iterations=700
 Stepsize=0.08
 
 [geometry]
@@ -19,7 +19,7 @@ Lookat=0.,0.,0.
 
 Upvector=0.,1.,0.
 Diskinner=3.
-Diskouter=30.
+Diskouter=60.
 
 [materials]
 
@@ -27,16 +27,15 @@ Horizongrid=0
 Disktexture=blackbody
 Skytexture=texture
 Skydiskratio=0.05
-Fogdo=1
+Fogdo=0
 Fogmult=0.03
 
-Diskmultiplier=100
-Diskalphamultiplier=4000
+Diskmultiplier=1000
+Diskintensitydo=1
 
 Gain=.8
 Normalize=-1
 
 Blurdo=1
-Bloomcut=4.0
 
 Redshift=1

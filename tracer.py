@@ -35,6 +35,9 @@ DRAWGRAPH = True
 OVERRIDE_RES = False
 
 SCENE_FNAME = 'scenes/default.scene'
+
+CHUNKSIZE = 9000
+
 for arg in sys.argv[1:]:
     if arg == '-d':
         LOFI = True
@@ -53,6 +56,10 @@ for arg in sys.argv[1:]:
         DRAWGRAPH = False
         DISABLE_DISPLAY = True
         DISABLE_SHUFFLING = True
+        continue
+
+    if (arg[0:2] == '-c'):
+        CHUNKSIZE = int(arg[2:])
         continue
 
     if arg[0:2] == "-j":
@@ -93,7 +100,6 @@ defaults = {
             "Diskouter":"4",
             "Resolution":"160,120",
             "Diskmultiplier":"100.",
-            "Diskalphamultiplier":"2000",
             "Gain":"1",
             "Normalize":"-1",
             "Blurdo":"1",
@@ -159,7 +165,8 @@ try:
 
     #options for 'blackbody' disktexture
     DISK_MULTIPLIER = float(cfp.get('materials','Diskmultiplier'))
-    DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
+    #DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
+    DISK_INTENSITY_DO = int(cfp.get('materials','Diskintensitydo'))
     REDSHIFT = float(cfp.get('materials','Redshift'))
 
     GAIN = float(cfp.get('materials','Gain'))
@@ -428,7 +435,7 @@ def tonumpyarray(mp_arr):
 
 #partition viewport in contiguous chunks
 
-CHUNKSIZE = 9000
+#CHUNKSIZE = 9000
 if not DISABLE_SHUFFLING:
     np.random.shuffle(pixelindices)
 chunks = np.array_split(pixelindices,numPixels/CHUNKSIZE + 1)
@@ -749,11 +756,15 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                             temperature /= (opz_doppler*opz_gravitational).clip(0.1)
 
                         intensity = bb.intensity(temperature)
-                        diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+                        if DISK_INTENSITY_DO:
+                            diskcolor = np.einsum('ij,i->ij', bb.colour(temperature),DISK_MULTIPLIER*intensity)#np.maximum(1.*ones,DISK_MULTIPLIER*intensity))
+                        else:
+                            diskcolor = bb.colour(temperature)
 
-                        iscotaper = np.clip((colpointsqr-DISKINNERSQR)*0.5,0.,1.)
+                        iscotaper = np.clip((colpointsqr-DISKINNERSQR)*0.3,0.,1.)
+                        outertaper = np.clip(temperature/1000. ,0.,1.)
 
-                        diskalpha = iscotaper * np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
+                        diskalpha = diskmask * iscotaper * outertaper#np.clip(diskmask * DISK_ALPHA_MULTIPLIER *intensity,0.,1.)
 
 
                     object_colour = blendcolors(diskcolor,diskalpha,object_colour,object_alpha)
@@ -890,6 +901,9 @@ print "Total raytracing time: %s"%(str(datetime.timedelta(seconds= (time.time()-
 
 print "Postprocessing..."
 
+#gain
+print "- gain..."
+total_colour_buffer_preproc *= GAIN
 
 
 # airy bloom
@@ -916,7 +930,8 @@ if AIRY_BLOOM:
 
     # the pixel size of the kernel:
     # 25 pixels radius is ok for 5.0 bright source pixel at 1920x1080, so...
-    # remembering that airy ~ 1/x^3, so intensity/x^3 = threshold => x = (intensity/threshold)^1/3
+    # remembering that airy ~ 1/x^3, so if we want intensity/x^3 < hreshold => 
+    # => max_x = (intensity/threshold)^1/3
     # so it scales with 
     # - the cube root of maximum intensity
     # - linear in resolution
@@ -965,10 +980,6 @@ if NORMALIZE > 0:
     colour *= 1 / (NORMALIZE * np.amax(colour.flatten()) )
 
 
-#wait.... gain is completely ignored?
-#gain
-print "- gain..."
-total_colour_buffer_preproc *= GAIN
 
 
 #final colour
