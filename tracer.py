@@ -274,7 +274,7 @@ def srgbtorgb(arr):
 
 print "Loading textures..."
 if SKY_TEXTURE == 'texture':
-    texarr_sky = spm.imread('textures/bgedit.png')
+    texarr_sky = spm.imread('textures/bgedit.jpg')
     # must convert to float here so we can work in linear colour
     texarr_sky = texarr_sky.astype(float)
     texarr_sky /= 255.0
