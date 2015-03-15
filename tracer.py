@@ -100,6 +100,9 @@ if not os.path.isfile(SCENE_FNAME):
 
 
 defaults = {
+            "Skytexture":"texture",
+            "Disktexture":"none",
+            "Skydiskratio":"1.",
             "Distort":"1",
             "Fogdo":"1",
             "Blurdo":"1",
@@ -119,11 +122,12 @@ defaults = {
             "Cameraposition":"0.,1.,-10",
             "Fieldofview":1.5,
             "Lookat":"0.,0.,0.",
-            "Horizongrid":"1",
+            "Horizongrid":"0",
             "Redshift":"1",
             "sRGBOut":"1",
             "Diskintensitydo":"1",
             "sRGBIn":"1",
+            "fourvelocity":"1,0,0,0"
             }
 
 cfp = configparser.ConfigParser(defaults)
@@ -193,17 +197,7 @@ try:
     DISKINNER = float(cfp.get('geometry','Diskinner'))
     DISKOUTER = float(cfp.get('geometry','Diskouter'))
 
-    #options for 'blackbody' disktexture
-    DISK_MULTIPLIER = float(cfp.get('materials','Diskmultiplier'))
-    #DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
-    DISK_INTENSITY_DO = int(cfp.get('materials','Diskintensitydo'))
-    REDSHIFT = float(cfp.get('materials','Redshift'))
-
-    GAIN = float(cfp.get('materials','Gain'))
-    NORMALIZE = float(cfp.get('materials','Normalize'))
-
-    BLOOMCUT = float(cfp.get('materials','Bloomcut'))
-
+    FOURVELOCITY = [float(x) for x in cfp.get('geometry','Fourvelocity').split(',')]
 
 
 except (KeyError, configparser.NoSectionError):
@@ -225,6 +219,21 @@ try:
     #perform linear rgb->srgb conversion
     SRGBOUT = int(cfp.get('materials','sRGBOut'))
     SRGBIN = int(cfp.get('materials','sRGBIn'))
+
+    #options for 'blackbody' disktexture
+    DISK_MULTIPLIER = float(cfp.get('materials','Diskmultiplier'))
+    #DISK_ALPHA_MULTIPLIER = float(cfp.get('materials','Diskalphamultiplier'))
+    DISK_INTENSITY_DO = int(cfp.get('materials','Diskintensitydo'))
+    REDSHIFT = float(cfp.get('materials','Redshift'))
+
+    GAIN = float(cfp.get('materials','Gain'))
+    NORMALIZE = float(cfp.get('materials','Normalize'))
+
+    BLOOMCUT = float(cfp.get('materials','Bloomcut'))
+
+
+
+
 except (KeyError, configparser.NoSectionError):
     logger.debug("error reading scene file: insufficient data in materials section")
     logger.debug("using defaults.")
@@ -246,18 +255,78 @@ except KeyError:
 
 logger.debug("%dx%d", RESOLUTION[0], RESOLUTION[1])
 
+
+
 #just ensuring it's an np.array() and not a tuple/list
 CAMERA_POS = np.array(CAMERA_POS)
 
 
-#ensure the observer's 4-velocity is timelike
-#since as of now the observer is schwarzschild stationary, we just need to check
-#whether he's outside the horizon.
-if np.linalg.norm(CAMERA_POS) <= 1.:
-    logger.debug("Error: the observer's 4-velocity is not timelike.")
-    logger.debug("(try placing the observer outside the event horizon)")
+#distinguish 4D mode from 3D
+
+M3D = 0
+M4D = 1
+
+if len(CAMERA_POS) == 3:
+    MODE = M3D
+    logger.debug("rendering in 3D mode")
+elif len(CAMERA_POS) == 4:
+    MODE = M4D
+    logger.debug("rendering in 4D mode")
+    #CAMERA_POS remains the 3-position of the camera
+    CAMERA_POS_4 = np.copy(CAMERA_POS)
+    CAMERA_POS = CAMERA_POS[1:]
+else:
+    logger.error("Error: camera position has wrong number of components (%d) instead of 3 or 4."%len(CAMERA_POS))
     sys.exit(1)
 
+
+#ensure the observer's 4-velocity is timelike
+if MODE == M3D:
+    #since as of now the observer is schwarzschild stationary, we just need to check
+    #whether he's outside the horizon.
+    if np.linalg.norm(CAMERA_POS) <= 1.:
+        logger.debug("Error: the observer's 4-velocity is not timelike.")
+        logger.debug("(try placing the observer outside the event horizon)")
+        sys.exit(1)
+else:
+
+    LEVI_CIVITA_4 = np.array([[[[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], [[0, 0, 0,
+     0], [0, 0, 0, 0], [0, 0, 0, 1], [0, 0, -1, 0]], [[0, 0, 0, 
+    0], [0, 0, 0, -1], [0, 0, 0, 0], [0, 1, 0, 0]], [[0, 0, 0, 0], [0,
+     0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 0]]], [[[0, 0, 0, 0], [0, 0, 
+    0, 0], [0, 0, 0, -1], [0, 0, 1, 0]], [[0, 0, 0, 0], [0, 0, 0, 
+    0], [0, 0, 0, 0], [0, 0, 0, 0]], [[0, 0, 0, 1], [0, 0, 0, 0], [0, 
+    0, 0, 0], [-1, 0, 0, 0]], [[0, 0, -1, 0], [0, 0, 0, 0], [1, 0, 0, 
+    0], [0, 0, 0, 0]]], [[[0, 0, 0, 0], [0, 0, 0, 1], [0, 0, 0, 
+    0], [0, -1, 0, 0]], [[0, 0, 0, -1], [0, 0, 0, 0], [0, 0, 0, 
+    0], [1, 0, 0, 0]], [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 
+    0, 0, 0]], [[0, 1, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 
+    0]]], [[[0, 0, 0, 0], [0, 0, -1, 0], [0, 1, 0, 0], [0, 0, 0, 
+    0]], [[0, 0, 1, 0], [0, 0, 0, 0], [-1, 0, 0, 0], [0, 0, 0, 
+    0]], [[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 
+    0]], [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]]]) # thanks, mathematica!
+
+    def SchwarzschildProduct(v1,v2,pos):
+        r = np.linalg.norm(pos)
+        v1r = np.dot(pos,v1[1:]) * pos / (r*r)
+        v2r = np.dot(pos,v2[1:]) * pos / (r*r)
+        v1ort = v1[1:] - v1r
+        v2ort = v2[1:] - v2r
+        return (1.-1./r) * v1[0]*v2[0] - 1/(1.-1./r) * np.dot(v1r,v2r) - np.dot(v1ort,v2ort)
+
+
+    uu = SchwarzschildProduct(FOURVELOCITY,FOURVELOCITY,CAMERA_POS)
+
+    logger.debug("4-velocity square = %4f"%uu)
+
+    if uu <= 0:
+        logger.error("Error: the observer's 4-velocity is not timelike")
+        sys.exit()
+    
+    #normalize 4-velocity
+    FOURVELOCITY /= np.sqrt(uu)
+
+   
 
 DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
@@ -369,24 +438,108 @@ def lookup(texarr,uvarrin): #uvarrin is an array of uv coordinates
     return texarr[  uvarr[:,1], uvarr[:,0] ]
 
 
+if MODE == M3D:
 
-logger.debug("Computing rotation matrix...")
+    logger.debug("Computing rotation matrix...")
 
-# this is just standard CGI vector algebra
+    # this is just standard CGI vector algebra
 
-FRONTVEC = (LOOKAT-CAMERA_POS)
-FRONTVEC = FRONTVEC / np.linalg.norm(FRONTVEC)
+    FRONTVEC = (LOOKAT-CAMERA_POS)
+    FRONTVEC = FRONTVEC / np.linalg.norm(FRONTVEC)
 
-LEFTVEC = np.cross(UPVEC,FRONTVEC)
-LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
+    LEFTVEC = np.cross(UPVEC,FRONTVEC)
+    LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
 
-NUPVEC = np.cross(FRONTVEC,LEFTVEC)
+    NUPVEC = np.cross(FRONTVEC,LEFTVEC)
 
-viewMatrix = np.zeros((3,3))
+    viewMatrix = np.zeros((3,3))
 
-viewMatrix[:,0] = LEFTVEC
-viewMatrix[:,1] = NUPVEC
-viewMatrix[:,2] = FRONTVEC
+    viewMatrix[:,0] = LEFTVEC
+    viewMatrix[:,1] = NUPVEC
+    viewMatrix[:,2] = FRONTVEC
+
+else:
+    
+    FRONTVEC = (LOOKAT-CAMERA_POS)
+    
+
+    #computing 4-vectors
+
+    #we compute the only 4-vector schwarzschild-orthogonal to u^\mu
+    #that has FRONTVEC has spacial component
+
+    r = np.linalg.norm(CAMERA_POS)
+   
+    #it turns out that v^t = - (u^i v_i ) / u_t
+
+    u_t = (1. - 1./r) * FOURVELOCITY[0]
+
+    # we need u^i v_i
+    ur = np.dot(FOURVELOCITY[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+    uort = FOURVELOCITY[1:] - ur
+    vr = np.dot(FRONTVEC,CAMERA_POS)*CAMERA_POS/(r*r)
+    vort = FRONTVEC - vr
+
+    uiv_i = - 1/(1.-1/r) * np.dot(ur,vr) - np.dot(uort,vort)
+
+    #contravariant component v^t
+    if abs(u_t) <= 0.00001:
+        logger.error("four-velocity has zero t component, so no front 4-vector with general specified xyz components can be built.")
+        logger.error("consider switching to 4D mode for the frontvector.")
+        sys.exit()
+
+    vt = - uiv_i / u_t
+
+    FRONTVEC_4 = np.array([vt, FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+
+    FRONTVEC_4 /=  np.sqrt(-SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4, CAMERA_POS))
+
+    logger.debug("frontal 4-vector: "+str(FRONTVEC_4)+" (norm %f)"%SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4,CAMERA_POS))
+
+    #we do the same for UPVEC
+    LEFTVEC = np.cross(UPVEC,FRONTVEC)
+    LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
+
+    # we need again u^ip_i
+    NUPVEC = np.cross(FRONTVEC,LEFTVEC)
+    pr = np.dot(NUPVEC,CAMERA_POS)*CAMERA_POS/(r*r)
+    port = NUPVEC - pr
+
+    uip_i = - 1/(1.-1/r) * np.dot(ur,pr) - np.dot(uort,port)
+
+    pt = - uip_i / u_t 
+
+    UPVEC_4 = np.array([pt, NUPVEC[0],NUPVEC[1],NUPVEC[2]])
+    UPVEC_4 /= np.sqrt( - SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
+
+    logger.debug("up 4-vector: "+str(UPVEC_4)+" (norm %f)"%SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
+
+    # l_m = epsilon_mnrs u^n p^r f^s
+
+    l_ = np.einsum('mnrs,n,r,s->m',LEVI_CIVITA_4,FOURVELOCITY,UPVEC_4,FRONTVEC_4)
+
+    LEFTVEC_4 = np.zeros(4)
+    LEFTVEC_4[0] = l_[0] / (1-1/r)
+    l_r = np.dot(LEFTVEC_4[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+    l_ort = l_[1:] - l_r
+    LEFTVEC_4[1:] = - (1-1/r)*l_r - l_ort
+
+    logger.debug("left 4-vector: "+str(LEFTVEC_4)+" (norm %f)"%SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
+
+    lorMatrix = np.zeros((4,4))
+
+    lorMatrix[:,0] = FOURVELOCITY
+    lorMatrix[:,1] = LEFTVEC_4
+    lorMatrix[:,2] = UPVEC_4
+    lorMatrix[:,3] = FRONTVEC_4
+
+    logger.debug("transformation matrix: \n"+str(lorMatrix))
+
+    eta = [ [ SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,j],CAMERA_POS) for i in range(4)] for j in range(4)]
+
+    logger.debug(str(eta))
+
+
 
 
 #array [0,1,2,...,numPixels]
@@ -663,14 +816,31 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         view[:,0]*=TANFOV
         view[:,1]*=TANFOV
 
-        #rotating through the view matrix
+        viewsqr = norm(view)
+        viewnrm = np.sqrt(viewsqr)
 
-        view = np.einsum('jk,ik->ij',viewMatrix,view)
+        normview = view/viewnrm[:,np.newaxis]
+
+        if MODE == M3D:
+            #rotating through the view matrix
+
+            normview = np.einsum('jk,ik->ij',viewMatrix,normview)
+
+        else:
+            view_4 = np.zeros((numChunk,4))
+            #time component is negative because we receive light from the past
+            view_4[:,0] = - 1
+            view_4[:,1:4] = normview
+
+            #transforming through lorentz matrix
+            view_4 = np.einsum('ij,aj->ai',lorMatrix,view_4)
+        
+            normview = view_4[:,1:4]
+            
 
         #original position
         point = np.outer(ones, CAMERA_POS)
 
-        normview = normalize(view)
 
         velocity = np.copy(normview)
 

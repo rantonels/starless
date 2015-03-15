@@ -1,0 +1,51 @@
+[lofi]
+
+Resolution=160,120
+
+Iterations=500
+
+Stepsize=0.03
+
+[hifi]
+
+Resolution=640,480
+Iterations=500
+Stepsize=0.03
+
+
+
+[geometry]
+
+Cameraposition=0.,0.,1.,1.5
+Fourvelocity=1.,0.4,-0.1,0.
+
+#Tangent of field of view
+Fieldofview=2.
+
+#Self explanatory
+#fixes the view vector
+Lookat=0.,0.,0.
+
+#The vector defining the "up" direction
+#(it's actually projected on the orthogonal subspace to the view vector)
+Upvector=0,1.,0.
+
+
+Diskinner=1.5
+Diskouter=6.
+
+[materials]
+
+sRGBIn=1
+sRGBOut=1
+
+Disktexture=texture
+
+Skytexture=texture
+
+Fogdo=0
+
+Airy_bloom=1
+
+Blurdo=1
+
