@@ -242,6 +242,15 @@ print "%dx%d"%(RESOLUTION[0],RESOLUTION[1])
 CAMERA_POS = np.array(CAMERA_POS)
 
 
+#ensure the observer's 4-velocity is timelike
+#since as of now the observer is schwarzschild stationary, we just need to check
+#whether he's outside the horizon.
+if np.linalg.norm(CAMERA_POS) <= 1.:
+    print "Error: the observer's 4-velocity is not timelike."
+    print "(try placing the observer outside the event horizon)"
+    sys.exit(1)
+
+
 DISKINNERSQR = DISKINNER*DISKINNER
 DISKOUTERSQR = DISKOUTER*DISKOUTER
 
