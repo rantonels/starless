@@ -128,7 +128,31 @@ FOGSKIP = 1
 
 METHOD = METH_RK4
 
+#enums to avoid per-iteration string comparisons
 
+ST_NONE = 0
+ST_TEXTURE = 1
+ST_FINAL = 2
+
+st_dict = {
+        "none":ST_NONE,
+        "texture":ST_TEXTURE,
+        "final":ST_FINAL
+    }
+
+DT_NONE = 0
+DT_TEXTURE = 1
+DT_SOLID = 2
+DT_GRID = 3
+DT_BLACKBODY = 4
+
+dt_dict = {
+        "none":DT_NONE,
+        "texture":DT_TEXTURE,
+        "solid":DT_SOLID,
+        "grid":DT_GRID,
+        "blackbody":DT_BLACKBODY
+    }
 
 #this section works, but only if the .scene file is good
 #if there's anything wrong, it's a trainwreck
@@ -196,6 +220,20 @@ try:
 except (KeyError,ConfigParser.NoSectionError):
     print "error reading scene file: insufficient data in materials section"
     print "using defaults."
+
+
+# converting mode strings to mode ints
+try:
+    DISK_TEXTURE_INT = dt_dict[DISK_TEXTURE]
+except KeyError:
+    print "Error: %s is not a valid accretion disc rendering mode"%DISK_TEXTURE
+    sys.exit(1)
+
+try:
+    SKY_TEXTURE_INT = dt_dict[SKY_TEXTURE]
+except KeyError:
+    print "Error: %s is not a valid sky rendering mode"%SKY_TEXTURE
+    sys.exit(1)
 
 
 print "%dx%d"%(RESOLUTION[0],RESOLUTION[1])
@@ -688,7 +726,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
             # CHECK COLLISIONS
             # accretion disk
 
-            if DISK_TEXTURE != "none":
+            if DISK_TEXTURE_INT != DT_NONE:
 
                 mask_crossing = np.logical_xor( oldpoint[:,1] > 0., point[:,1] > 0.) #whether it just crossed the horizontal plane
                 mask_distance = np.logical_and((pointsqr < DISKOUTERSQR), (pointsqr > DISKINNERSQR))  #whether it's close enough
@@ -702,7 +740,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                     colpoint = point + lambdaa[:,np.newaxis] * velocity
                     colpointsqr = sqrnorm(colpoint)
 
-                    if DISK_TEXTURE == "grid":
+                    if DISK_TEXTURE_INT == DT_GRID:
                         phi = np.arctan2(colpoint[:,0],point[:,2])
                         theta = np.arctan2(colpoint[:,1],norm(point[:,[0,2]]))
                         diskcolor =     np.outer(
@@ -712,11 +750,11 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                                         np.outer(ones,np.array([0.,0.,1.]) )
                         diskalpha = diskmask
 
-                    elif DISK_TEXTURE == "solid":
+                    elif DISK_TEXTURE_INT == DT_SOLID:
                         diskcolor = np.array([1.,1.,.98])
                         diskalpha = diskmask
 
-                    elif DISK_TEXTURE == "texture":
+                    elif DISK_TEXTURE_INT == DT_TEXTURE:
 
                         phi = np.arctan2(colpoint[:,0],point[:,2])
                         
@@ -730,7 +768,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                         #diskmask = np.logical_and(diskmask, alphamask )
                         diskalpha = diskmask * np.clip(sqrnorm(diskcolor)/3.0,0.0,1.0)
 
-                    elif DISK_TEXTURE == "blackbody":
+                    elif DISK_TEXTURE_INT == DT_BLACKBODY:
 
                         temperature = np.exp(bb.disktemp(colpointsqr,9.2103))
 
@@ -802,7 +840,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         vuv[:,0] = np.mod(vphi+4.5,2*np.pi)/(2*np.pi)
         vuv[:,1] = (vtheta+np.pi/2)/(np.pi)
 
-        if SKY_TEXTURE == 'texture':
+        if SKY_TEXTURE_INT == DT_TEXTURE:
             col_sky = lookup(texarr_sky,vuv)[:,0:3]
 
         showprogress("generating debug layers...",i,q)
@@ -814,11 +852,11 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         #dbg_grid = np.abs(normalize(velocity)) < 0.1
 
 
-        if SKY_TEXTURE == 'texture':
+        if SKY_TEXTURE_INT == ST_TEXTURE:
             col_bg = col_sky
-        elif SKY_TEXTURE == 'none':
+        elif SKY_TEXTURE_INT == ST_NONE:
             col_bg = np.zeros((numChunk,3))
-        elif SKY_TEXTURE == 'final':
+        elif SKY_TEXTURE_INT == ST_FINAL:
             dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
             col_bg = dbg_finvec
         else:
