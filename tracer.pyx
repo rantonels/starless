@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import numpy as np
+cimport numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import scipy.ndimage as ndim
@@ -17,6 +18,107 @@ import bloom
 import gc
 
 start_time = 0
+
+numPixel = 0
+RESOLUTION = (0,0)
+SRGBOUT = 0
+cdef np.ndarray ones;
+
+
+def vec3a(vec): #returns a constant 3-vector array (don't use for varying vectors)
+    return np.outer(ones,vec)
+
+def vec3(x,y,z):
+    return vec3a(np.array([x,y,z]))
+
+def norm(vec):
+    # you might not believe it, but this is the fastest way of doing this
+    # there's a stackexchange answer about this
+    return np.sqrt(np.einsum('...i,...i',vec,vec))
+
+def normalize(np.ndarray[np.float_t, ndim=2] vec):
+    #return vec/ (np.outer(norm(vec),np.array([1.,1.,1.])))
+    return vec / (norm(vec)[:,np.newaxis])
+
+# an efficient way of computing the sixth power of r
+# much faster than pow!
+# np has this optimization for power(a,2)
+# but not for power(a,3)!
+
+def sqrnorm(vec):
+    return np.einsum('...i,...i',vec,vec)
+
+def sixth(v):
+    tmp = sqrnorm(v)
+    return tmp*tmp*tmp
+
+
+def RK4f(y,h2):
+    f = np.zeros(y.shape)
+    f[:,0:3] = y[:,3:6]
+    f[:,3:6] = - 1.5 * h2 * y[:,0:3] / sixth(y[:,0:3])[:,np.newaxis]
+    return f
+
+
+# this blends colours ca and cb by placing ca in front of cb
+def blendcolors(cb,balpha,ca,aalpha):
+            #* np.outer(aalpha, np.array([1.,1.,1.])) + \
+    #return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
+    return  ca + cb * (balpha*(1.-aalpha))[:,np.newaxis]
+
+
+# this is for the final alpha channel after blending
+def blendalpha(balpha,aalpha):
+    return aalpha + balpha*(1.-aalpha)
+
+
+# these need to be here
+# convert from linear rgb to srgb
+def rgbtosrgb(arr):
+    print "RGB -> sRGB..."
+    #see https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
+    mask = arr > 0.0031308
+    arr[mask] **= 1/2.4
+    arr[mask] *= 1.055
+    arr[mask] -= 0.055
+    arr[-mask] *= 12.92
+
+
+# convert from srgb to linear rgb
+def srgbtorgb(arr):
+    print "sRGB -> RGB..."
+    mask = arr > 0.04045
+    arr[mask] += 0.055
+    arr[mask] /= 1.055
+    arr[mask] **= 2.4
+    arr[-mask] /= 12.92
+
+
+def saveToImg(arr,fname):
+    print " - saving %s..."%fname
+    #copy
+    imgout = np.array(arr)
+    #clip
+    imgout = np.clip(imgout,0.0,1.0)
+    #rgb->srgb
+    if SRGBOUT:
+        rgbtosrgb(imgout)
+    #unflattening
+    imgout = imgout.reshape((RESOLUTION[1],RESOLUTION[0],3))
+    plt.imsave(fname,imgout)
+
+# this is not just for bool, also for floats (as grayscale)
+def saveToImgBool(arr,fname):
+    saveToImg(np.outer(arr,np.array([1.,1.,1.])),fname)
+
+
+#for shared arrays
+
+def tonumpyarray(mp_arr):
+    a = np.frombuffer(mp_arr.get_obj(), dtype=np.float32)
+    a.shape = ((a.shape[0]*a.shape[1],3))
+    return a
+
 
 def main(argss):
 
@@ -300,27 +402,7 @@ def main(argss):
 
         ax.cla()
 
-    # these need to be here
-    # convert from linear rgb to srgb
-    def rgbtosrgb(arr):
-        print "RGB -> sRGB..."
-        #see https://en.wikipedia.org/wiki/SRGB#Specification_of_the_transformation
-        mask = arr > 0.0031308
-        arr[mask] **= 1/2.4
-        arr[mask] *= 1.055
-        arr[mask] -= 0.055
-        arr[-mask] *= 12.92
-
-
-    # convert from srgb to linear rgb
-    def srgbtorgb(arr):
-        print "sRGB -> RGB..."
-        mask = arr > 0.04045
-        arr[mask] += 0.055
-        arr[mask] /= 1.055
-        arr[mask] **= 2.4
-        arr[-mask] /= 12.92
-
+    
 
     print "Loading textures..."
     if SKY_TEXTURE == 'texture':
@@ -402,78 +484,7 @@ def main(argss):
     #random sample of floats
     ransample = np.random.random_sample((numPixels))
 
-    def vec3a(vec): #returns a constant 3-vector array (don't use for varying vectors)
-        return np.outer(ones,vec)
-
-    def vec3(x,y,z):
-        return vec3a(np.array([x,y,z]))
-
-    def norm(vec):
-        # you might not believe it, but this is the fastest way of doing this
-        # there's a stackexchange answer about this
-        return np.sqrt(np.einsum('...i,...i',vec,vec))
-
-    def normalize(vec):
-        #return vec/ (np.outer(norm(vec),np.array([1.,1.,1.])))
-        return vec / (norm(vec)[:,np.newaxis])
-
-    # an efficient way of computing the sixth power of r
-    # much faster than pow!
-    # np has this optimization for power(a,2)
-    # but not for power(a,3)!
-
-    def sqrnorm(vec):
-        return np.einsum('...i,...i',vec,vec)
-
-    def sixth(v):
-        tmp = sqrnorm(v)
-        return tmp*tmp*tmp
-
-
-    def RK4f(y,h2):
-        f = np.zeros(y.shape)
-        f[:,0:3] = y[:,3:6]
-        f[:,3:6] = - 1.5 * h2 * y[:,0:3] / sixth(y[:,0:3])[:,np.newaxis]
-        return f
-
-
-    # this blends colours ca and cb by placing ca in front of cb
-    def blendcolors(cb,balpha,ca,aalpha):
-                #* np.outer(aalpha, np.array([1.,1.,1.])) + \
-        #return  ca + cb * np.outer(balpha*(1.-aalpha),np.array([1.,1.,1.]))
-        return  ca + cb * (balpha*(1.-aalpha))[:,np.newaxis]
-
-
-    # this is for the final alpha channel after blending
-    def blendalpha(balpha,aalpha):
-        return aalpha + balpha*(1.-aalpha)
-
-
-    def saveToImg(arr,fname):
-        print " - saving %s..."%fname
-        #copy
-        imgout = np.array(arr)
-        #clip
-        imgout = np.clip(imgout,0.0,1.0)
-        #rgb->srgb
-        if SRGBOUT:
-            rgbtosrgb(imgout)
-        #unflattening
-        imgout = imgout.reshape((RESOLUTION[1],RESOLUTION[0],3))
-        plt.imsave(fname,imgout)
-
-    # this is not just for bool, also for floats (as grayscale)
-    def saveToImgBool(arr,fname):
-        saveToImg(np.outer(arr,np.array([1.,1.,1.])),fname)
-
-
-    #for shared arrays
-
-    def tonumpyarray(mp_arr):
-        a = np.frombuffer(mp_arr.get_obj(), dtype=np.float32)
-        a.shape = ((numPixels,3))
-        return a
-
+    
 
 
 
@@ -627,6 +638,8 @@ def main(argss):
         itcounters[i] = 0
         chnkcounters[i]= 0
 
+        cdef unsigned int it;
+
         for chunk in schedule:
             #if killers[i]:
             #    break
@@ -679,7 +692,8 @@ def main(argss):
 
             pointsqr = np.copy(ones3)
 
-            for it in range(NITER):
+
+            for it from 0 <= it < NITER:
                 itcounters[i]+=1
 
                 if it%150 == 1:
