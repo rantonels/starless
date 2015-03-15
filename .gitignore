@@ -6,3 +6,6 @@ out
 *.prof
 texturework/
 textures/bgedit.png
+*.so
+*.c
+build/
