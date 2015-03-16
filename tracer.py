@@ -247,7 +247,7 @@ except KeyError:
     sys.exit(1)
 
 try:
-    SKY_TEXTURE_INT = dt_dict[SKY_TEXTURE]
+    SKY_TEXTURE_INT = st_dict[SKY_TEXTURE]
 except KeyError:
     logger.debug("Error: %s is not a valid sky rendering mode", SKY_TEXTURE)
     sys.exit(1)
@@ -474,87 +474,87 @@ else:
     #computing 4-vectors
 
     ##we compute the only 4-vector schwarzschild-orthogonal to u^\mu
-    ##that has FRONTVEC has spacial component
+    ###that has FRONTVEC has spacial component
 
-    r = np.linalg.norm(CAMERA_POS)
+    #r = np.linalg.norm(CAMERA_POS)
    
-    ##it turns out that v^t = - (u^i v_i ) / u_t
+    ###it turns out that v^t = - (u^i v_i ) / u_t
 
-    #u_t = (1. - 1./r) * FOURVELOCITY[0]
+    ##u_t = (1. - 1./r) * FOURVELOCITY[0]
 
-    ## we need u^i v_i
-    #ur = np.dot(FOURVELOCITY[1:],CAMERA_POS)*CAMERA_POS/(r*r)
-    #uort = FOURVELOCITY[1:] - ur
-    #vr = np.dot(FRONTVEC,CAMERA_POS)*CAMERA_POS/(r*r)
-    #vort = FRONTVEC - vr
+    ### we need u^i v_i
+    ##ur = np.dot(FOURVELOCITY[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+    ##uort = FOURVELOCITY[1:] - ur
+    ##vr = np.dot(FRONTVEC,CAMERA_POS)*CAMERA_POS/(r*r)
+    ##vort = FRONTVEC - vr
 
-    #uiv_i = - 1/(1.-1/r) * np.dot(ur,vr) - np.dot(uort,vort)
+    ##uiv_i = - 1/(1.-1/r) * np.dot(ur,vr) - np.dot(uort,vort)
 
-    ##contravariant component v^t
-    #if abs(u_t) <= 0.00001:
-    #    logger.error("four-velocity has zero t component, so no front 4-vector with general specified xyz components can be built.")
-    #    logger.error("consider switching to 4D mode for the frontvector.")
-    #    sys.exit()
+    ###contravariant component v^t
+    ##if abs(u_t) <= 0.00001:
+    ##    logger.error("four-velocity has zero t component, so no front 4-vector with general specified xyz components can be built.")
+    ##    logger.error("consider switching to 4D mode for the frontvector.")
+    ##    sys.exit()
 
-    #vt = - uiv_i / u_t
+    ##vt = - uiv_i / u_t
 
-    #FRONTVEC_4 = np.array([vt, FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+    FRONTVEC_4 = np.array([0, FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
 
-    FRONTVEC_4_tilde = np.array([0,FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+    #FRONTVEC_4_tilde = np.array([0,FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
 
-    toadd =  SchwarzschildProduct(FRONTVEC_4_tilde,FOURVELOCITY,CAMERA_POS) * FOURVELOCITY
+    #toadd =  SchwarzschildProduct(FRONTVEC_4_tilde,FOURVELOCITY,CAMERA_POS) * FOURVELOCITY
 
-    logger.debug("toadd: "+str(toadd))
+    #logger.debug("toadd: "+str(toadd))
 
-    FRONTVEC_4 = FRONTVEC_4_tilde - toadd
+    #FRONTVEC_4 = FRONTVEC_4_tilde - toadd
 
-    FRONTVEC_4 /=  np.sqrt(-SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4, CAMERA_POS))
+    #FRONTVEC_4 /=  np.sqrt(-SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4, CAMERA_POS))
 
-    logger.debug("frontal 4-vector: "+str(FRONTVEC_4)+" (norm %f)"%SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4,CAMERA_POS))
+    #logger.debug("frontal 4-vector: "+str(FRONTVEC_4)+" (norm %f)"%SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4,CAMERA_POS))
 
-    #we switch to Gram-Schmidt for the up vector
-    #standard 3d up vector
+    ##we switch to Gram-Schmidt for the up vector
+    ##standard 3d up vector
     LEFTVEC = np.cross(UPVEC,FRONTVEC)
-    LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
-    NUPVEC = np.cross(FRONTVEC,LEFTVEC)
-    
-    #raw 4-vector, to gram-schmidt project
-    UPVEC_4_tilde = np.array([0, NUPVEC[0],NUPVEC[1],NUPVEC[2]])
+    #LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
+    #NUPVEC = np.cross(FRONTVEC,LEFTVEC)
+    #
+    ##raw 4-vector, to gram-schmidt project
+    UPVEC_4 = np.array([0, UPVEC[0],UPVEC[1],UPVEC[2]])
 
-    #Gram-Schmidt
-    UPVEC_4 = UPVEC_4_tilde - SchwarzschildProduct(UPVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY + SchwarzschildProduct(UPVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4
+    ##Gram-Schmidt
+    #UPVEC_4 = UPVEC_4_tilde - SchwarzschildProduct(UPVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY + SchwarzschildProduct(UPVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4
 
 
 
-    UPVEC_4 /= np.sqrt( - SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
+    #UPVEC_4 /= np.sqrt( - SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
 
-    logger.debug("up 4-vector: "+str(UPVEC_4)+" (norm %f)"%SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
+    #logger.debug("up 4-vector: "+str(UPVEC_4)+" (norm %f)"%SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
 
-#    # the left 4-vec is pretty obvious
-#    # l_m = epsilon_mnrs u^n p^r f^s
+#   # # the left 4-vec is pretty obvious
+#   # # l_m = epsilon_mnrs u^n p^r f^s
 #
-#    l_ = np.einsum('mnrs,n,r,s->m',LEVI_CIVITA_4,FOURVELOCITY,UPVEC_4,FRONTVEC_4)
+#   # l_ = np.einsum('mnrs,n,r,s->m',LEVI_CIVITA_4,FOURVELOCITY,UPVEC_4,FRONTVEC_4)
 #
-#    # following instructions raise the index on l
-#    LEFTVEC_4 = np.zeros(4)
-#    LEFTVEC_4[0] = l_[0] / (1-1/r)
-#    l_r = np.dot(LEFTVEC_4[1:],CAMERA_POS)*CAMERA_POS/(r*r)
-#    l_ort = l_[1:] - l_r
-#    LEFTVEC_4[1:] = - (1-1/r)*l_r - l_ort
+#   # # following instructions raise the index on l
+#   # LEFTVEC_4 = np.zeros(4)
+#   # LEFTVEC_4[0] = l_[0] / (1-1/r)
+#   # l_r = np.dot(LEFTVEC_4[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+#   # l_ort = l_[1:] - l_r
+#   # LEFTVEC_4[1:] = - (1-1/r)*l_r - l_ort
 #
 
-    LEFTVEC_4_tilde = np.array([0,LEFTVEC[0],LEFTVEC[1],LEFTVEC[2]])
+    LEFTVEC_4 = np.array([0,LEFTVEC[0],LEFTVEC[1],LEFTVEC[2]])
 
-    LEFTVEC_4 = LEFTVEC_4_tilde \
-        - SchwarzschildProduct(LEFTVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY \
-        + SchwarzschildProduct(LEFTVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4 \
-        + SchwarzschildProduct(LEFTVEC_4_tilde,UPVEC_4,CAMERA_POS)*UPVEC_4
+    #LEFTVEC_4 = LEFTVEC_4_tilde \
+    #    - SchwarzschildProduct(LEFTVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY \
+    #    + SchwarzschildProduct(LEFTVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4 \
+    #    + SchwarzschildProduct(LEFTVEC_4_tilde,UPVEC_4,CAMERA_POS)*UPVEC_4
 
 
-    #should already be normalized in theory, but in practice it horribly isn't.
-    LEFTVEC_4 /= np.sqrt( - SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
+    ##should already be normalized in theory, but in practice it horribly isn't.
+    #LEFTVEC_4 /= np.sqrt( - SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
 
-    logger.debug("left 4-vector: "+str(LEFTVEC_4)+" (norm %f)"%SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
+    #logger.debug("left 4-vector: "+str(LEFTVEC_4)+" (norm %f)"%SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
 
     lorMatrix = np.zeros((4,4))
 
@@ -563,13 +563,31 @@ else:
     lorMatrix[:,2] = UPVEC_4
     lorMatrix[:,3] = FRONTVEC_4
 
+
+    logger.debug("transformation matrix (pre-GM): \n"+str(lorMatrix))
+
+    signature = [1,-1,-1,-1]
+    order = [0,3,2,1]
+
+    for a in range(4):
+        i = order[a]
+        lorMatrix[:,i] /= np.sqrt( abs(SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,i],CAMERA_POS)))
+        for b in range(a+1,4):
+            j = order[b]
+            lorMatrix[:,j] -= signature[i] * SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,j],CAMERA_POS) * lorMatrix[:,i]
+
+
+
+
     logger.debug("transformation matrix: \n"+str(lorMatrix))
 
     eta = np.array([ [ SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,j],CAMERA_POS) for i in range(4)] for j in range(4)])
 
     logger.debug('\n'+str(eta))
 
-    HORSQRADIUS = min(1.,(np.linalg.norm(CAMERA_POS))**2*0.8)
+    HORSQRADIUS = 0# min(1.,(np.linalg.norm(CAMERA_POS))**2*0.8)
+
+    logger.debug("horizon sphere radius: %f"%HORSQRADIUS)
 
 
 #array [0,1,2,...,numPixels]
@@ -846,10 +864,13 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         view[:,0]*=TANFOV
         view[:,1]*=TANFOV
 
-        viewsqr = norm(view)
-        viewnrm = np.sqrt(viewsqr)
+        #viewsqr = norm(view)
+        #viewnrm = np.sqrt(viewsqr)
 
-        normview = view/viewnrm[:,np.newaxis]
+        #normview = view/viewnrm[:,np.newaxis]
+
+        normview = normalize(view)
+
 
         if MODE == M3D:
             #rotating through the view matrix
@@ -859,17 +880,22 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         else:
             view_4 = np.zeros((numChunk,4))
             #time component is negative because we receive light from the past
-            view_4[:,0] = - 1
+            #but we set it positive because we integrate time backwards
+            view_4[:,0] = - 1.
             view_4[:,1:4] = normview
 
             #transforming through lorentz matrix
             view_4 = np.einsum('ij,aj->ai',lorMatrix,view_4)
         
             normview = view_4[:,1:4]
-           
-            viewsqr = norm(normview)
-            viewnrm = np.sqrt(viewsqr)[:,np.newaxis]
-            normview /= viewnrm
+          
+            
+            #viewsqr = np.einsum('ai,ai->a',normview,normview)
+            #viewnrm = np.sqrt(viewsqr)[:,np.newaxis]
+            #normview /= viewnrm
+            normview = normalize(normview)
+
+            print norm(normview)
 
         #original position
         point = np.outer(ones, CAMERA_POS)
@@ -883,7 +909,6 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         object_alpha = np.zeros(numChunk)
 
         #squared angular momentum per unit mass (in the "Newtonian fantasy")
-        #h2 = np.outer(sqrnorm(np.cross(point,velocity)),np.array([1.,1.,1.]))
         h2 = sqrnorm(np.cross(point,velocity))[:,np.newaxis]
 
         pointsqr = np.copy(ones3)
@@ -912,20 +937,22 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                 #simple step size control
                 rkstep = STEP
 
-                # standard Runge-Kutta
-                y = np.zeros((numChunk,6))
-                y[:,0:3] = point
-                y[:,3:6] = velocity
-                k1 = RK4f( y, h2)
-                k2 = RK4f( y + 0.5*rkstep*k1, h2)
-                k3 = RK4f( y + 0.5*rkstep*k2, h2)
-                k4 = RK4f( y +     rkstep*k3, h2)
+                if DISTORT:
+                    # standard Runge-Kutta
+                    y = np.zeros((numChunk,6))
+                    y[:,0:3] = point
+                    y[:,3:6] = velocity
+                    k1 = RK4f( y, h2)
+                    k2 = RK4f( y + 0.5*rkstep*k1, h2)
+                    k3 = RK4f( y + 0.5*rkstep*k2, h2)
+                    k4 = RK4f( y +     rkstep*k3, h2)
 
-                increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
+                    increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
 
-                point += increment[:,0:3]
-                velocity += increment[:,3:6]
-
+                    point += increment[:,0:3]
+                    velocity += increment[:,3:6]
+                else:
+                    point += velocity * STEP
 
             #useful precalcs
             pointsqr = sqrnorm(point)
@@ -1078,7 +1105,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         elif SKY_TEXTURE_INT == ST_NONE:
             col_bg = np.zeros((numChunk,3))
         elif SKY_TEXTURE_INT == ST_FINAL:
-            dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
+            dbg_finvec = np.clip(normalize(velocity) + np.array([.5,.5,0.0])[np.newaxis,:],0.0,1.0)
             col_bg = dbg_finvec
         else:
             col_bg = np.zeros((numChunk,3))

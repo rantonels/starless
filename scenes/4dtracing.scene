@@ -2,29 +2,31 @@
 
 Resolution=160,120
 
-Iterations=800
+Iterations=500
 
-Stepsize=0.01
+Stepsize=0.002
 
 [hifi]
 
-Resolution=1920,1080
-Iterations=800
-Stepsize=0.01
+Resolution=640,480
+Iterations=500
+Stepsize=0.005
 
 
 
 [geometry]
 
-Cameraposition=0.,0.,0.005,0.2
-Fourvelocity=.06,0.,0.,-1.
+Distort=1
+
+Cameraposition=0,0,10.
+Fourvelocity=1.,0.,0.,0.
 
 #Tangent of field of view
-Fieldofview=2.5
+Fieldofview=2.
 
 #Self explanatory
 #fixes the view vector
-Lookat=100.,0.,-50.
+Lookat=0.,0.,0.
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
@@ -32,16 +34,16 @@ Upvector=0.,1.,0.
 
 
 Diskinner=1.5
-Diskouter=6.
+Diskouter=20.
 
 [materials]
 
-sRGBIn=1
-sRGBOut=1
+sRGBIn=0
+sRGBOut=0
 
-Disktexture=texture
+Disktexture=none
 
-Skytexture=texture
+Skytexture=final
 
 Horizongrid=1
 
