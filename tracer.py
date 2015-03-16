@@ -458,71 +458,101 @@ if MODE == M3D:
     viewMatrix[:,1] = NUPVEC
     viewMatrix[:,2] = FRONTVEC
 
+
+    HORSQRADIUS = 1
+
 else:
-    
+   
+    FOURVELOCITY /= SchwarzschildProduct(FOURVELOCITY,FOURVELOCITY,CAMERA_POS)
+
+    np.set_printoptions(suppress=True, precision=3)
+
     FRONTVEC = (LOOKAT-CAMERA_POS)
     
+    FRONTVEC = FRONTVEC / np.linalg.norm(FRONTVEC)
 
     #computing 4-vectors
 
-    #we compute the only 4-vector schwarzschild-orthogonal to u^\mu
-    #that has FRONTVEC has spacial component
+    ##we compute the only 4-vector schwarzschild-orthogonal to u^\mu
+    ##that has FRONTVEC has spacial component
 
     r = np.linalg.norm(CAMERA_POS)
    
-    #it turns out that v^t = - (u^i v_i ) / u_t
+    ##it turns out that v^t = - (u^i v_i ) / u_t
 
-    u_t = (1. - 1./r) * FOURVELOCITY[0]
+    #u_t = (1. - 1./r) * FOURVELOCITY[0]
 
-    # we need u^i v_i
-    ur = np.dot(FOURVELOCITY[1:],CAMERA_POS)*CAMERA_POS/(r*r)
-    uort = FOURVELOCITY[1:] - ur
-    vr = np.dot(FRONTVEC,CAMERA_POS)*CAMERA_POS/(r*r)
-    vort = FRONTVEC - vr
+    ## we need u^i v_i
+    #ur = np.dot(FOURVELOCITY[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+    #uort = FOURVELOCITY[1:] - ur
+    #vr = np.dot(FRONTVEC,CAMERA_POS)*CAMERA_POS/(r*r)
+    #vort = FRONTVEC - vr
 
-    uiv_i = - 1/(1.-1/r) * np.dot(ur,vr) - np.dot(uort,vort)
+    #uiv_i = - 1/(1.-1/r) * np.dot(ur,vr) - np.dot(uort,vort)
 
-    #contravariant component v^t
-    if abs(u_t) <= 0.00001:
-        logger.error("four-velocity has zero t component, so no front 4-vector with general specified xyz components can be built.")
-        logger.error("consider switching to 4D mode for the frontvector.")
-        sys.exit()
+    ##contravariant component v^t
+    #if abs(u_t) <= 0.00001:
+    #    logger.error("four-velocity has zero t component, so no front 4-vector with general specified xyz components can be built.")
+    #    logger.error("consider switching to 4D mode for the frontvector.")
+    #    sys.exit()
 
-    vt = - uiv_i / u_t
+    #vt = - uiv_i / u_t
 
-    FRONTVEC_4 = np.array([vt, FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+    #FRONTVEC_4 = np.array([vt, FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+
+    FRONTVEC_4_tilde = np.array([0,FRONTVEC[0],FRONTVEC[1],FRONTVEC[2]])
+
+    toadd =  SchwarzschildProduct(FRONTVEC_4_tilde,FOURVELOCITY,CAMERA_POS) * FOURVELOCITY
+
+    logger.debug("toadd: "+str(toadd))
+
+    FRONTVEC_4 = FRONTVEC_4_tilde - toadd
 
     FRONTVEC_4 /=  np.sqrt(-SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4, CAMERA_POS))
 
     logger.debug("frontal 4-vector: "+str(FRONTVEC_4)+" (norm %f)"%SchwarzschildProduct(FRONTVEC_4,FRONTVEC_4,CAMERA_POS))
 
-    #we do the same for UPVEC
+    #we switch to Gram-Schmidt for the up vector
+    #standard 3d up vector
     LEFTVEC = np.cross(UPVEC,FRONTVEC)
     LEFTVEC = LEFTVEC/np.linalg.norm(LEFTVEC)
-
-    # we need again u^ip_i
     NUPVEC = np.cross(FRONTVEC,LEFTVEC)
-    pr = np.dot(NUPVEC,CAMERA_POS)*CAMERA_POS/(r*r)
-    port = NUPVEC - pr
+    
+    #raw 4-vector, to gram-schmidt project
+    UPVEC_4_tilde = np.array([0, NUPVEC[0],NUPVEC[1],NUPVEC[2]])
 
-    uip_i = - 1/(1.-1/r) * np.dot(ur,pr) - np.dot(uort,port)
+    #Gram-Schmidt
+    UPVEC_4 = UPVEC_4_tilde - SchwarzschildProduct(UPVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY + SchwarzschildProduct(UPVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4
 
-    pt = - uip_i / u_t 
 
-    UPVEC_4 = np.array([pt, NUPVEC[0],NUPVEC[1],NUPVEC[2]])
+
     UPVEC_4 /= np.sqrt( - SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
 
     logger.debug("up 4-vector: "+str(UPVEC_4)+" (norm %f)"%SchwarzschildProduct(UPVEC_4,UPVEC_4,CAMERA_POS))
 
-    # l_m = epsilon_mnrs u^n p^r f^s
+#    # the left 4-vec is pretty obvious
+#    # l_m = epsilon_mnrs u^n p^r f^s
+#
+#    l_ = np.einsum('mnrs,n,r,s->m',LEVI_CIVITA_4,FOURVELOCITY,UPVEC_4,FRONTVEC_4)
+#
+#    # following instructions raise the index on l
+#    LEFTVEC_4 = np.zeros(4)
+#    LEFTVEC_4[0] = l_[0] / (1-1/r)
+#    l_r = np.dot(LEFTVEC_4[1:],CAMERA_POS)*CAMERA_POS/(r*r)
+#    l_ort = l_[1:] - l_r
+#    LEFTVEC_4[1:] = - (1-1/r)*l_r - l_ort
+#
 
-    l_ = np.einsum('mnrs,n,r,s->m',LEVI_CIVITA_4,FOURVELOCITY,UPVEC_4,FRONTVEC_4)
+    LEFTVEC_4_tilde = np.array([0,LEFTVEC[0],LEFTVEC[1],LEFTVEC[2]])
 
-    LEFTVEC_4 = np.zeros(4)
-    LEFTVEC_4[0] = l_[0] / (1-1/r)
-    l_r = np.dot(LEFTVEC_4[1:],CAMERA_POS)*CAMERA_POS/(r*r)
-    l_ort = l_[1:] - l_r
-    LEFTVEC_4[1:] = - (1-1/r)*l_r - l_ort
+    LEFTVEC_4 = LEFTVEC_4_tilde \
+        - SchwarzschildProduct(LEFTVEC_4_tilde,FOURVELOCITY,CAMERA_POS)*FOURVELOCITY \
+        + SchwarzschildProduct(LEFTVEC_4_tilde,FRONTVEC_4,CAMERA_POS)*FRONTVEC_4 \
+        + SchwarzschildProduct(LEFTVEC_4_tilde,UPVEC_4,CAMERA_POS)*UPVEC_4
+
+
+    #should already be normalized in theory, but in practice it horribly isn't.
+    LEFTVEC_4 /= np.sqrt( - SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
 
     logger.debug("left 4-vector: "+str(LEFTVEC_4)+" (norm %f)"%SchwarzschildProduct(LEFTVEC_4,LEFTVEC_4,CAMERA_POS))
 
@@ -535,11 +565,11 @@ else:
 
     logger.debug("transformation matrix: \n"+str(lorMatrix))
 
-    eta = [ [ SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,j],CAMERA_POS) for i in range(4)] for j in range(4)]
+    eta = np.array([ [ SchwarzschildProduct(lorMatrix[:,i],lorMatrix[:,j],CAMERA_POS) for i in range(4)] for j in range(4)])
 
-    logger.debug(str(eta))
+    logger.debug('\n'+str(eta))
 
-
+    HORSQRADIUS = min(1.,(np.linalg.norm(CAMERA_POS))**2*0.8)
 
 
 #array [0,1,2,...,numPixels]
@@ -836,7 +866,10 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
             view_4 = np.einsum('ij,aj->ai',lorMatrix,view_4)
         
             normview = view_4[:,1:4]
-            
+           
+            viewsqr = norm(normview)
+            viewnrm = np.sqrt(viewsqr)[:,np.newaxis]
+            normview /= viewnrm
 
         #original position
         point = np.outer(ones, CAMERA_POS)
@@ -997,11 +1030,11 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
             # event horizon
             oldpointsqr = sqrnorm(oldpoint)
 
-            mask_horizon = np.logical_and((pointsqr < 1),(sqrnorm(oldpoint) > 1) )
+            mask_horizon = np.logical_and((pointsqr < HORSQRADIUS),(sqrnorm(oldpoint) > HORSQRADIUS) )
 
             if mask_horizon.any() :
 
-                lambdaa =  1. - ((1.-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
+                lambdaa =  1. - ((HORSQRADIUS-oldpointsqr)/((pointsqr - oldpointsqr)))[:,np.newaxis]
                 colpoint = lambdaa * point + (1-lambdaa)*oldpoint
 
                 if HORIZON_GRID:

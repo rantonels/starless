@@ -2,33 +2,33 @@
 
 Resolution=160,120
 
-Iterations=500
+Iterations=800
 
-Stepsize=0.03
+Stepsize=0.01
 
 [hifi]
 
-Resolution=640,480
-Iterations=500
-Stepsize=0.03
+Resolution=1920,1080
+Iterations=800
+Stepsize=0.01
 
 
 
 [geometry]
 
-Cameraposition=0.,0.,1.,1.5
-Fourvelocity=1.,0.4,-0.1,0.
+Cameraposition=0.,0.,0.005,0.2
+Fourvelocity=.06,0.,0.,-1.
 
 #Tangent of field of view
-Fieldofview=2.
+Fieldofview=2.5
 
 #Self explanatory
 #fixes the view vector
-Lookat=0.,0.,0.
+Lookat=100.,0.,-50.
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
-Upvector=0,1.,0.
+Upvector=0.,1.,0.
 
 
 Diskinner=1.5
@@ -43,9 +43,14 @@ Disktexture=texture
 
 Skytexture=texture
 
+Horizongrid=1
+
+Skydiskratio=0.2
+
 Fogdo=0
 
 Airy_bloom=1
+Airy_radius=2
 
 Blurdo=1
 
