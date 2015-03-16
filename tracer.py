@@ -706,22 +706,24 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
                     velocity += accel * STEP
 
             elif METHOD == METH_RK4:
-                #simple step size control
-                rkstep = STEP
+                if DISTORT:
+                    #simple step size control
+                    rkstep = STEP
 
-                # standard Runge-Kutta
-                y = np.zeros((numChunk,6))
-                y[:,0:3] = point
-                y[:,3:6] = velocity
-                k1 = RK4f( y, h2)
-                k2 = RK4f( y + 0.5*rkstep*k1, h2)
-                k3 = RK4f( y + 0.5*rkstep*k2, h2)
-                k4 = RK4f( y +     rkstep*k3, h2)
+                    # standard Runge-Kutta
+                    y = np.zeros((numChunk,6))
+                    y[:,0:3] = point
+                    y[:,3:6] = velocity
+                    k1 = RK4f( y, h2)
+                    k2 = RK4f( y + 0.5*rkstep*k1, h2)
+                    k3 = RK4f( y + 0.5*rkstep*k2, h2)
+                    k4 = RK4f( y +     rkstep*k3, h2)
 
-                increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
+                    increment = rkstep/6. * (k1 + 2*k2 + 2*k3 + k4)
+                    
+                    velocity += increment[:,3:6]
 
                 point += increment[:,0:3]
-                velocity += increment[:,3:6]
 
 
             #useful precalcs
@@ -875,7 +877,7 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
         elif SKY_TEXTURE_INT == ST_NONE:
             col_bg = np.zeros((numChunk,3))
         elif SKY_TEXTURE_INT == ST_FINAL:
-            dbg_finvec = np.clip(normalize(velocity) + vec3(.5,.5,0.0),0.0,1.0)
+            dbg_finvec = np.clip(normalize(velocity) + np.array([.5,.5,0.0])[np.newaxis,:],0.0,1.0)
             col_bg = dbg_finvec
         else:
             col_bg = np.zeros((numChunk,3))
