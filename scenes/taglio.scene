@@ -2,14 +2,14 @@
 
 Resolution=160,120
 
-Iterations=1000
+Iterations=800
 Stepsize=0.08
 
 
 [hifi]
 
 Resolution=1920,1080
-Iterations=1000
+Iterations=800
 Stepsize=0.08
 
 
@@ -42,7 +42,7 @@ Skytexture=texture
 
 Skydiskratio=0.06
 
-Fogdo=1
+Fogdo=0
 Fogmult=0.02
 
 Bloomcut=0.8
@@ -50,3 +50,6 @@ Bloomcut=0.8
 Gain=1
 
 Normalize=-1
+
+Airy_bloom=1
+Airy_radius=0.3

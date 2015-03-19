@@ -4,13 +4,13 @@ Resolution=160,120
 
 Iterations=500
 
-Stepsize=0.002
+Stepsize=0.04
 
 [hifi]
 
 Resolution=640,480
 Iterations=500
-Stepsize=0.005
+Stepsize=0.04
 
 
 
@@ -18,11 +18,11 @@ Stepsize=0.005
 
 Distort=1
 
-Cameraposition=0,0,10.
-Fourvelocity=1.,0.,0.,0.
+Cameraposition=0,0,0,0.2
+Fourvelocity=0.01,0.,0.,-5.
 
 #Tangent of field of view
-Fieldofview=2.
+Fieldofview=5.
 
 #Self explanatory
 #fixes the view vector

@@ -585,7 +585,7 @@ else:
 
     logger.debug('\n'+str(eta))
 
-    HORSQRADIUS = 0# min(1.,(np.linalg.norm(CAMERA_POS))**2*0.8)
+    HORSQRADIUS =  min(1.,(np.linalg.norm(CAMERA_POS))**2*0.8)
 
     logger.debug("horizon sphere radius: %f"%HORSQRADIUS)
 
@@ -895,7 +895,6 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
             #normview /= viewnrm
             normview = normalize(normview)
 
-            print norm(normview)
 
         #original position
         point = np.outer(ones, CAMERA_POS)
