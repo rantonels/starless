@@ -33,7 +33,7 @@ Stepsize=0.16
 Cameraposition=0.,1.,-20.
 
 #Tangent of field of view
-Fieldofview=0.7
+Fieldofview=1.5
 
 #Self explanatory
 #fixes the view vector
@@ -46,7 +46,7 @@ Upvector=.2,1.,0.
 
 #Disc inner/outer radii
 Diskinner=2.6
-Diskouter=10.
+Diskouter=14.
 
 
 [materials]
@@ -85,7 +85,7 @@ Diskalphamultiplier=2000.
 Skytexture=texture
 
 #Ratio of sky brightness / disk brightness
-Skydiskratio=0.07
+Skydiskratio=0.05
 
 #Toggle dust (0/1)
 Fogdo=1
@@ -103,7 +103,7 @@ Fogmult=0.02
 #Whether to perform Airy disk bloom
 Airy_bloom=1
 #this parameter rescales the resolution (1.0 = standard size)
-Airy_radius=1.0
+Airy_radius=0.5
 
 
 #image done until now is called 'postbloom.png'
