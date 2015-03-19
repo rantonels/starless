@@ -30,23 +30,23 @@ Stepsize=0.16
 
 #Position of the camera in units of r_S
 #x,z are the disc's plane
-Cameraposition=0.,1.,-20.
+Cameraposition=0.,0.,-1.5
 
 #Tangent of field of view
-Fieldofview=1.5
+Fieldofview=0.7
 
 #Self explanatory
 #fixes the view vector
-Lookat=0.,0.,0.
+Lookat=100.,0.,-1.5
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
-Upvector=.2,1.,0.
+Upvector=0.,1.,0.
 
 
 #Disc inner/outer radii
 Diskinner=2.6
-Diskouter=14.
+Diskouter=10.
 
 
 [materials]
@@ -59,7 +59,7 @@ sRGBOut=1
 
 
 #Whether to draw a grid on the horizon (0/1)
-Horizongrid=0
+Horizongrid=1
 
 #Disk rendering mode
 #	none:		don't draw
@@ -67,7 +67,7 @@ Horizongrid=0
 #	grid:		draw blue/white checkered
 #	solid:		draw solid white
 #	blackbody:	use the realistic 'blackbody' model
-Disktexture=texture
+Disktexture=none
 
 #blackbody disc options
 #these options are ignored when Disktexture != blackbody
@@ -85,10 +85,10 @@ Diskalphamultiplier=2000.
 Skytexture=texture
 
 #Ratio of sky brightness / disk brightness
-Skydiskratio=0.05
+Skydiskratio=0.07
 
 #Toggle dust (0/1)
-Fogdo=1
+Fogdo=0
 #Dust intensity multiplier
 Fogmult=0.02
 
@@ -101,9 +101,9 @@ Fogmult=0.02
 #the standard optical resolution is computed assuming the human eye's aperture
 
 #Whether to perform Airy disk bloom
-Airy_bloom=1
+Airy_bloom=0
 #this parameter rescales the resolution (1.0 = standard size)
-Airy_radius=0.5
+Airy_radius=1.0
 
 
 #image done until now is called 'postbloom.png'
@@ -112,8 +112,7 @@ Airy_radius=0.5
 #Wide gaussian (lit up dust effect)
 #a convolution pass with a pretty wide gaussian which is add-blended
 #simulates dust lit up by bright objects (very scenographic)
-Blurdo=1
-
+Blurdo=0
 
 #Deprecated option
 Bloomcut=0.8

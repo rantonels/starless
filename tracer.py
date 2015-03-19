@@ -637,7 +637,7 @@ def sixth(v):
 def RK4f(y,h2):
     f = np.zeros(y.shape)
     f[:,0:3] = y[:,3:6]
-    f[:,3:6] = - 1.5 * h2 * y[:,0:3] / sixth(y[:,0:3])[:,np.newaxis]
+    f[:,3:6] = - 1.5 * h2 * y[:,0:3] / np.power(sqrnorm(y[:,0:3]),2.5)[:,np.newaxis]
     return f
 
 
@@ -929,14 +929,15 @@ def raytrace_schedule(i,schedule,total_shared,q): # this is the function running
 
                 if DISTORT:
                     #this is the magical - 3/2 r^(-5) potential...
-                    accel = - 1.5 * h2 *  point / sixth(point)[:,np.newaxis]
+                    accel = - 1.5 * h2 *  point / np.power(sqrnorm(point),2.5)[:,np.newaxis]
                     velocity += accel * STEP
 
             elif METHOD == METH_RK4:
-                #simple step size control
-                rkstep = STEP
 
                 if DISTORT:
+                    #simple step size control
+                    rkstep = STEP
+
                     # standard Runge-Kutta
                     y = np.zeros((numChunk,6))
                     y[:,0:3] = point
