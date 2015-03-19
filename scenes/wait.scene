@@ -1,0 +1,128 @@
+# Default starless .scene file
+
+
+# Test specifications
+# this settings apply when rendering with the -d option
+[lofi]
+
+# output resolution
+Resolution=160,120
+
+#number of raytracing steps
+Iterations=250
+
+#size of integration step
+Stepsize=0.16
+
+
+# Full render options
+# apply when rendering without the -d option
+[hifi]
+
+Resolution=1024,786
+Iterations=250
+Stepsize=0.16
+
+
+# From now on, settings apply to both tests and full renders
+
+[geometry]
+
+#Position of the camera in units of r_S
+#x,z are the disc's plane
+Cameraposition=0.,0.,-1.5
+
+#Tangent of field of view
+Fieldofview=0.7
+
+#Self explanatory
+#fixes the view vector
+Lookat=100.,0.,-1.5
+
+#The vector defining the "up" direction
+#(it's actually projected on the orthogonal subspace to the view vector)
+Upvector=0.,1.,0.
+
+
+#Disc inner/outer radii
+Diskinner=2.6
+Diskouter=10.
+
+
+[materials]
+
+#whether to convert sRGB -> linear RGB when loading textures
+sRGBIn=1
+
+#whether to convert back RGB -> sRGB after postprocessing, before saving
+sRGBOut=1
+
+
+#Whether to draw a grid on the horizon (0/1)
+Horizongrid=1
+
+#Disk rendering mode
+#	none:		don't draw
+#	texture:	use texture adisk.jpg for both colour and alpha
+#	grid:		draw blue/white checkered
+#	solid:		draw solid white
+#	blackbody:	use the realistic 'blackbody' model
+Disktexture=none
+
+#blackbody disc options
+#these options are ignored when Disktexture != blackbody
+
+#multiplier for impact of computed planckian brightness in disc colour brightness
+Diskmultiplier=100.
+#multiplier for impact of computed planckian brightness in disc alpha
+Diskalphamultiplier=2000.
+
+
+#Sky rendering mode
+#	none:		solid black
+#	texture:	use texture bgedit.png
+#	final:		normalized final ray direction
+Skytexture=texture
+
+#Ratio of sky brightness / disk brightness
+Skydiskratio=0.07
+
+#Toggle dust (0/1)
+Fogdo=0
+#Dust intensity multiplier
+Fogmult=0.02
+
+#Postprocessing options
+
+#image done until now is called 'preproc.png'
+
+#Bloom (Airy convolution)
+#a 3-channel convolution with an Airy disk kernel is performed
+#the standard optical resolution is computed assuming the human eye's aperture
+
+#Whether to perform Airy disk bloom
+Airy_bloom=0
+#this parameter rescales the resolution (1.0 = standard size)
+Airy_radius=1.0
+
+
+#image done until now is called 'postbloom.png'
+
+
+#Wide gaussian (lit up dust effect)
+#a convolution pass with a pretty wide gaussian which is add-blended
+#simulates dust lit up by bright objects (very scenographic)
+Blurdo=0
+
+#Deprecated option
+Bloomcut=0.8
+
+#Gain
+Gain=1
+
+#Normalize.
+#	-1:			don't normalize
+#	any positive x:		make it so that x times the brightest pixel channel is sent to 1
+Normalize=-1
+
+
