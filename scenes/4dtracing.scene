@@ -18,15 +18,18 @@ Stepsize=0.04
 
 Distort=1
 
-Cameraposition=0,0,0,0.2
-Fourvelocity=0.01,0.,0.,-5.
+Cameraposition=0,0,0,1.59
+Fourvelocity=1.0,0.577,0.,0
+#Cameraposition=0,0,0,1.04287
+#Fourvelocity=24.3225502,0.,0.,-0.979227
+
 
 #Tangent of field of view
-Fieldofview=5.
+Fieldofview=3.
 
 #Self explanatory
 #fixes the view vector
-Lookat=0.,0.,0.
+Lookat=1000.,0.,0.5
 
 #The vector defining the "up" direction
 #(it's actually projected on the orthogonal subspace to the view vector)
@@ -43,16 +46,16 @@ sRGBOut=0
 
 Disktexture=none
 
-Skytexture=final
+Skytexture=texture
 
-Horizongrid=1
+Horizongrid=0
 
-Skydiskratio=0.2
+Skydiskratio=1.0
 
-Fogdo=0
+Fogdo=1
 
 Airy_bloom=1
 Airy_radius=2
 
-Blurdo=1
+Blurdo=0
 
