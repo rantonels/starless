@@ -2,7 +2,6 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import scipy.ndimage as ndim
 import scipy.misc as spm
 import random,sys,time,os
