@@ -237,7 +237,7 @@ except KeyError:
     sys.exit(1)
 
 try:
-    SKY_TEXTURE_INT = dt_dict[SKY_TEXTURE]
+    SKY_TEXTURE_INT = st_dict[SKY_TEXTURE]
 except KeyError:
     logger.debug("Error: %s is not a valid sky rendering mode", SKY_TEXTURE)
     sys.exit(1)
